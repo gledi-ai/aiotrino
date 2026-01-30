@@ -26,7 +26,7 @@ with open(os.path.join(here, "aiotrino", "_version.py"), "r", "utf-8") as f:
 with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
     readme = f.read()
 
-sqlalchemy_require = ["sqlalchemy >= 1.4"]
+sqlalchemy_require = ["sqlalchemy >= 2.0"]
 
 all_require = sqlalchemy_require
 
@@ -71,16 +71,14 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.12, <4",
     install_requires=[
         "aioitertools",
         "lz4",
