@@ -78,13 +78,43 @@ class AsyncAdapt_aiotrino_cursor(Cursor):
         super().__init__(adapt_connection._connection, request, legacy_primitive_types=legacy_primitive_types)
         self._adapt_connection = adapt_connection
         self.await_ = adapt_connection.await_
+        self._soft_closed_memoized: Dict[str, Any] = {}
 
         if not self.server_side:
             self._rows = deque()
 
     @property
     def description(self) -> list[ColumnDescription]:
+        if "description" in self._soft_closed_memoized:
+            return self._soft_closed_memoized["description"]
         return self.await_(self.get_description())
+
+    async def _async_soft_close(self) -> None:
+        """Close the cursor but keep the results pending, and memoize the description.
+
+        Required by SQLAlchemy >= 2.0.44 for proper async cursor handling.
+        """
+        if self.server_side:
+            return
+
+        # Memoize description before closing
+        self._soft_closed_memoized = {
+            "description": await self.get_description(),
+        }
+        # Close the underlying request resources
+        await self._request.close()
+
+    def close(self) -> None:
+        """Close the cursor and clear results."""
+        if not self.server_side:
+            self._rows.clear()
+
+        # If already soft-closed, nothing more to do
+        if self._soft_closed_memoized:
+            return
+
+        # Otherwise close the request
+        self.await_(self._request.close())
 
     def _handle_exception(self, error):
         self._adapt_connection._handle_exception(error)
@@ -182,6 +212,11 @@ class AsyncAdapt_aiotrino_ss_cursor(AsyncAdapt_aiotrino_cursor):
 
     def executemany(self, operation, seq_of_parameters):
         self.await_(self._executemany(operation, seq_of_parameters))
+
+    def close(self) -> None:
+        """Close the server-side cursor."""
+        if self._request is not None:
+            self.await_(self._request.close())
 
     def fetchone(self):
         return self.await_(super().fetchone())
