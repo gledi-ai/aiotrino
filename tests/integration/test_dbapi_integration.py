@@ -1712,8 +1712,7 @@ async def test_set_system_role_in_connection(run_trino):
         assert_role_headers(cur, "system=ALL")
 
 
-@pytest.mark.asyncio(loop_scope="session")
-async def assert_role_headers(cursor, expected_header):
+def assert_role_headers(cursor, expected_header):
     assert cursor._request.http_headers[constants.HEADER_ROLE] == expected_header
 
 
