@@ -318,55 +318,58 @@ async def test_legacy_primitive_types_with_connection_and_cursor(
         legacy_primitive_types=connection_legacy_primitive_types,
     )
 
-    cur = await connection.cursor(legacy_primitive_types=cursor_legacy_primitive_types)
+    try:
+        cur = await connection.cursor(legacy_primitive_types=cursor_legacy_primitive_types)
 
-    # If legacy_primitive_types is passed to cursor, take value from it.
-    # If not, take value from legacy_primitive_types passed to connection.
-    # If legacy_primitive_types is not passed to cursor nor connection, default to False.
-    if cursor_legacy_primitive_types is not None:
-        expected_legacy_primitive_types = cursor_legacy_primitive_types
-    elif connection_legacy_primitive_types is not None:
-        expected_legacy_primitive_types = connection_legacy_primitive_types
-    else:
-        expected_legacy_primitive_types = False
+        # If legacy_primitive_types is passed to cursor, take value from it.
+        # If not, take value from legacy_primitive_types passed to connection.
+        # If legacy_primitive_types is not passed to cursor nor connection, default to False.
+        if cursor_legacy_primitive_types is not None:
+            expected_legacy_primitive_types = cursor_legacy_primitive_types
+        elif connection_legacy_primitive_types is not None:
+            expected_legacy_primitive_types = connection_legacy_primitive_types
+        else:
+            expected_legacy_primitive_types = False
 
-    test_query = """
-    SELECT
-        DECIMAL '0.142857',
-        DATE '2018-01-01',
-        TIMESTAMP '2019-01-01 00:00:00.000+01:00',
-        TIMESTAMP '2019-01-01 00:00:00.000 UTC',
-        TIMESTAMP '2019-01-01 00:00:00.000',
-        TIME '00:00:00.000'
-    """
-    # Check values which cannot be represented by Python types
-    if expected_legacy_primitive_types:
-        test_query += """
-        ,DATE '-2001-08-22'
+        test_query = """
+        SELECT
+            DECIMAL '0.142857',
+            DATE '2018-01-01',
+            TIMESTAMP '2019-01-01 00:00:00.000+01:00',
+            TIMESTAMP '2019-01-01 00:00:00.000 UTC',
+            TIMESTAMP '2019-01-01 00:00:00.000',
+            TIME '00:00:00.000'
         """
-    await cur.execute(test_query)
-    rows = await cur.fetchall()
+        # Check values which cannot be represented by Python types
+        if expected_legacy_primitive_types:
+            test_query += """
+            ,DATE '-2001-08-22'
+            """
+        await cur.execute(test_query)
+        rows = await cur.fetchall()
 
-    if not expected_legacy_primitive_types:
-        assert len(rows[0]) == 6
-        assert rows[0][0] == Decimal("0.142857")
-        assert rows[0][1] == date(2018, 1, 1)
-        assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
-        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC"))
-        assert rows[0][4] == datetime(2019, 1, 1)
-        assert rows[0][5] == time(0, 0, 0, 0)
-    else:
-        for value in rows[0]:
-            assert isinstance(value, str)
+        if not expected_legacy_primitive_types:
+            assert len(rows[0]) == 6
+            assert rows[0][0] == Decimal("0.142857")
+            assert rows[0][1] == date(2018, 1, 1)
+            assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
+            assert rows[0][3] == datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC"))
+            assert rows[0][4] == datetime(2019, 1, 1)
+            assert rows[0][5] == time(0, 0, 0, 0)
+        else:
+            for value in rows[0]:
+                assert isinstance(value, str)
 
-        assert len(rows[0]) == 7
-        assert rows[0][0] == "0.142857"
-        assert rows[0][1] == "2018-01-01"
-        assert rows[0][2] == "2019-01-01 00:00:00.000 +01:00"
-        assert rows[0][3] == "2019-01-01 00:00:00.000 UTC"
-        assert rows[0][4] == "2019-01-01 00:00:00.000"
-        assert rows[0][5] == "00:00:00.000"
-        assert rows[0][6] == "-2001-08-22"
+            assert len(rows[0]) == 7
+            assert rows[0][0] == "0.142857"
+            assert rows[0][1] == "2018-01-01"
+            assert rows[0][2] == "2019-01-01 00:00:00.000 +01:00"
+            assert rows[0][3] == "2019-01-01 00:00:00.000 UTC"
+            assert rows[0][4] == "2019-01-01 00:00:00.000"
+            assert rows[0][5] == "00:00:00.000"
+            assert rows[0][6] == "-2001-08-22"
+    finally:
+        await connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1446,15 +1449,18 @@ async def test_session_properties(run_trino):
         session_properties={"query_max_run_time": "10m", "query_priority": "1"},
         max_attempts=1,
     )
-    cur = await connection.cursor()
-    await cur.execute("SHOW SESSION")
-    rows = await cur.fetchall()
-    assert len(rows) > 2
-    for prop, value, _, _, _ in rows:
-        if prop == "query_max_run_time":
-            assert value == "10m"
-        elif prop == "query_priority":
-            assert value == "1"
+    try:
+        cur = await connection.cursor()
+        await cur.execute("SHOW SESSION")
+        rows = await cur.fetchall()
+        assert len(rows) > 2
+        for prop, value, _, _, _ in rows:
+            if prop == "query_max_run_time":
+                assert value == "10m"
+            elif prop == "query_priority":
+                assert value == "1"
+    finally:
+        await connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1603,18 +1609,21 @@ async def retrieve_client_tags_from_query(run_trino, client_tags):
         client_tags=client_tags,
     )
 
-    async with await trino_connection.cursor() as cur:
-        await cur.execute("SELECT 1")
-        await cur.fetchall()
+    try:
+        async with await trino_connection.cursor() as cur:
+            await cur.execute("SELECT 1")
+            await cur.fetchall()
 
-    api_url = "http://" + trino_connection.host + ":" + str(trino_connection.port)
-    query_info = requests.post(
-        api_url + "/ui/login",
-        data={"username": "admin", "password": "", "redirectPath": api_url + "/ui/api/query/" + cur._query.query_id},
-    ).json()
+        api_url = "http://" + trino_connection.host + ":" + str(trino_connection.port)
+        query_info = requests.post(
+            api_url + "/ui/login",
+            data={"username": "admin", "password": "", "redirectPath": api_url + "/ui/api/query/" + cur._query.query_id},
+        ).json()
 
-    query_client_tags = query_info["session"]["clientTags"]
-    return query_client_tags
+        query_client_tags = query_info["session"]["clientTags"]
+        return query_client_tags
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.skipif(trino_version() == 351, reason="current_catalog not supported in older Trino versions")
@@ -1648,25 +1657,28 @@ async def test_use_schema(run_trino):
 
     trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", source="test", catalog="tpch", max_attempts=1)
 
-    async with await trino_connection.cursor() as cur:
-        await cur.execute("SELECT current_catalog, current_schema")
-        result = await cur.fetchall()
-        assert result[0][0] == "tpch"
-        assert result[0][1] is None
+    try:
+        async with await trino_connection.cursor() as cur:
+            await cur.execute("SELECT current_catalog, current_schema")
+            result = await cur.fetchall()
+            assert result[0][0] == "tpch"
+            assert result[0][1] is None
 
-        await cur.execute("USE tiny")
-        await cur.fetchall()
-        await cur.execute("SELECT current_catalog, current_schema")
-        result = await cur.fetchall()
-        assert result[0][0] == "tpch"
-        assert result[0][1] == "tiny"
+            await cur.execute("USE tiny")
+            await cur.fetchall()
+            await cur.execute("SELECT current_catalog, current_schema")
+            result = await cur.fetchall()
+            assert result[0][0] == "tpch"
+            assert result[0][1] == "tiny"
 
-        await cur.execute("USE sf1")
-        await cur.fetchall()
-        await cur.execute("SELECT current_catalog, current_schema")
-        result = await cur.fetchall()
-        assert result[0][0] == "tpch"
-        assert result[0][1] == "sf1"
+            await cur.execute("USE sf1")
+            await cur.fetchall()
+            await cur.execute("SELECT current_catalog, current_schema")
+            result = await cur.fetchall()
+            assert result[0][0] == "tpch"
+            assert result[0][1] == "sf1"
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1675,18 +1687,21 @@ async def test_set_role(run_trino):
 
     trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch")
 
-    async with await trino_connection.cursor() as cur:
-        await cur.execute("SHOW TABLES FROM information_schema")
-        await cur.fetchall()
-        assert cur._request._client_session.roles == {}
+    try:
+        async with await trino_connection.cursor() as cur:
+            await cur.execute("SHOW TABLES FROM information_schema")
+            await cur.fetchall()
+            assert cur._request._client_session.roles == {}
 
-        await cur.execute("SET ROLE ALL")
-        await cur.fetchall()
-        if trino_version() == 351:
-            assert_role_headers(cur, "tpch=ALL")
-        else:
-            # Newer Trino versions return the system role
-            assert_role_headers(cur, "system=ALL")
+            await cur.execute("SET ROLE ALL")
+            await cur.fetchall()
+            if trino_version() == 351:
+                assert_role_headers(cur, "tpch=ALL")
+            else:
+                # Newer Trino versions return the system role
+                assert_role_headers(cur, "system=ALL")
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1695,10 +1710,13 @@ async def test_set_role_in_connection(run_trino):
 
     trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch", roles={"system": "ALL"})
 
-    async with await trino_connection.cursor() as cur:
-        await cur.execute("SHOW TABLES FROM information_schema")
-        await cur.fetchall()
-        assert_role_headers(cur, "system=ALL")
+    try:
+        async with await trino_connection.cursor() as cur:
+            await cur.execute("SHOW TABLES FROM information_schema")
+            await cur.fetchall()
+            assert_role_headers(cur, "system=ALL")
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1706,10 +1724,13 @@ async def test_set_system_role_in_connection(run_trino):
     host, port = run_trino
 
     trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch", roles="ALL")
-    async with await trino_connection.cursor() as cur:
-        await cur.execute("SHOW TABLES FROM information_schema")
-        await cur.fetchall()
-        assert_role_headers(cur, "system=ALL")
+    try:
+        async with await trino_connection.cursor() as cur:
+            await cur.execute("SHOW TABLES FROM information_schema")
+            await cur.fetchall()
+            assert_role_headers(cur, "system=ALL")
+    finally:
+        await trino_connection.close()
 
 
 def assert_role_headers(cursor, expected_header):
@@ -1756,10 +1777,13 @@ async def test_set_timezone_in_connection(run_trino):
 
     trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch", timezone="Europe/Brussels")
 
-    async with await trino_connection.cursor() as cur:
-        await cur.execute("SELECT current_timezone()")
-        res = await cur.fetchall()
-        assert res[0][0] == "Europe/Brussels"
+    try:
+        async with await trino_connection.cursor() as cur:
+            await cur.execute("SELECT current_timezone()")
+            res = await cur.fetchall()
+            assert res[0][0] == "Europe/Brussels"
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1768,13 +1792,16 @@ async def test_connection_without_timezone(run_trino):
 
     trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch")
 
-    async with await trino_connection.cursor() as cur:
-        await cur.execute("SELECT current_timezone()")
-        res = await cur.fetchall()
-        session_tz = res[0][0]
-        localzone = get_localzone_name()
-        assert session_tz == localzone or (session_tz == "UTC" and localzone == "Etc/UTC")
-        # Workaround for difference between Trino timezone and tzlocal for UTC
+    try:
+        async with await trino_connection.cursor() as cur:
+            await cur.execute("SELECT current_timezone()")
+            res = await cur.fetchall()
+            session_tz = res[0][0]
+            localzone = get_localzone_name()
+            assert session_tz == localzone or (session_tz == "UTC" and localzone == "Etc/UTC")
+            # Workaround for difference between Trino timezone and tzlocal for UTC
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1788,13 +1815,16 @@ async def test_describe(run_trino):
         catalog="tpch",
     )
 
-    async with await trino_connection.cursor() as cur:
-        result = await cur.describe("SELECT 1, DECIMAL '1.0' as a")
+    try:
+        async with await trino_connection.cursor() as cur:
+            result = await cur.describe("SELECT 1, DECIMAL '1.0' as a")
 
-        assert result == [
-            DescribeOutput(name="_col0", catalog="", schema="", table="", type="integer", type_size=4, aliased=False),
-            DescribeOutput(name="a", catalog="", schema="", table="", type="decimal(2,1)", type_size=8, aliased=True),
-        ]
+            assert result == [
+                DescribeOutput(name="_col0", catalog="", schema="", table="", type="integer", type_size=4, aliased=False),
+                DescribeOutput(name="a", catalog="", schema="", table="", type="decimal(2,1)", type_size=8, aliased=True),
+            ]
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1808,47 +1838,50 @@ async def test_describe_table_query(run_trino):
         catalog="tpch",
     )
 
-    async with await trino_connection.cursor() as cur:
-        result = await cur.describe("SELECT * from tpch.tiny.nation")
+    try:
+        async with await trino_connection.cursor() as cur:
+            result = await cur.describe("SELECT * from tpch.tiny.nation")
 
-        assert result == [
-            DescribeOutput(
-                name="nationkey",
-                catalog="tpch",
-                schema="tiny",
-                table="nation",
-                type="bigint",
-                type_size=8,
-                aliased=False,
-            ),
-            DescribeOutput(
-                name="name",
-                catalog="tpch",
-                schema="tiny",
-                table="nation",
-                type="varchar(25)",
-                type_size=0,
-                aliased=False,
-            ),
-            DescribeOutput(
-                name="regionkey",
-                catalog="tpch",
-                schema="tiny",
-                table="nation",
-                type="bigint",
-                type_size=8,
-                aliased=False,
-            ),
-            DescribeOutput(
-                name="comment",
-                catalog="tpch",
-                schema="tiny",
-                table="nation",
-                type="varchar(152)",
-                type_size=0,
-                aliased=False,
-            ),
-        ]
+            assert result == [
+                DescribeOutput(
+                    name="nationkey",
+                    catalog="tpch",
+                    schema="tiny",
+                    table="nation",
+                    type="bigint",
+                    type_size=8,
+                    aliased=False,
+                ),
+                DescribeOutput(
+                    name="name",
+                    catalog="tpch",
+                    schema="tiny",
+                    table="nation",
+                    type="varchar(25)",
+                    type_size=0,
+                    aliased=False,
+                ),
+                DescribeOutput(
+                    name="regionkey",
+                    catalog="tpch",
+                    schema="tiny",
+                    table="nation",
+                    type="bigint",
+                    type_size=8,
+                    aliased=False,
+                ),
+                DescribeOutput(
+                    name="comment",
+                    catalog="tpch",
+                    schema="tiny",
+                    table="nation",
+                    type="varchar(152)",
+                    type_size=0,
+                    aliased=False,
+                ),
+            ]
+    finally:
+        await trino_connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")

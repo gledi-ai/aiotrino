@@ -41,6 +41,7 @@ async def trino_connection(run_trino, request) -> AsyncGenerator[tuple[AsyncEngi
     engine = create_async_engine(f"aiotrino://test@{host}:{port}/{request.param}", connect_args=connect_args)
     async with engine.connect() as conn:
         yield engine, conn
+    await engine.dispose()
 
 
 @pytest.mark.skipif(sqlalchemy_version() < "1.4", reason="columns argument to select() must be a Python list or other iterable")
