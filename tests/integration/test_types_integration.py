@@ -23,7 +23,9 @@ async def trino_connection(request, run_trino):
     host, port = run_trino
     encoding = request.param
 
-    conn = aiotrino.dbapi.Connection(host=host, port=port, user="test", source="test", max_attempts=1, encoding=encoding)
+    conn = aiotrino.dbapi.Connection(
+        host=host, port=port, user="test", source="test", max_attempts=1, encoding=encoding
+    )
     yield conn
     await conn.close()
 
@@ -404,54 +406,91 @@ async def test_timestamp_with_timezone(trino_connection, tz_str):
         # min supported timestamp(3) with time zone
         .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 12:34:56.123 {tz_str}'", python=datetime(2001, 8, 22, 12, 34, 56, 123000, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 12:34:56.123 {tz_str}'",
+            python=datetime(2001, 8, 22, 12, 34, 56, 123000, tzinfo=tz),
         )
         # max supported timestamp(3) with time zone
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.999 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 999000, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.999 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999000, tzinfo=tz),
         )
         # min value for each precision
         .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.1 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 100000, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.01 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 10000, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1000, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.0001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 100, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.00001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 10, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.000001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz))
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.1 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 100000, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.01 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 10000, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1000, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 100, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.00001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 10, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.000001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz)
+        )
         # max value for each precision
         .add_field(sql=f"TIMESTAMP '2001-08-22 23:59:59 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 23:59:59.9 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 900000, tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.99 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 990000, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 900000, tzinfo=tz),
         )
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.999 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 999000, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.99 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 990000, tzinfo=tz),
         )
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 999900, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.999 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999000, tzinfo=tz),
         )
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.99999 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 999990, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999900, tzinfo=tz),
         )
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.999999 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 999999, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.99999 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999990, tzinfo=tz),
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.999999 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999, tzinfo=tz),
         )
         # round down
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 12:34:56.1234561 {tz_str}'", python=datetime(2001, 8, 22, 12, 34, 56, 123456, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 12:34:56.1234561 {tz_str}'",
+            python=datetime(2001, 8, 22, 12, 34, 56, 123456, tzinfo=tz),
         )
         # round down, min value
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.000000000001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.000000000001 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz),
         )
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.0000001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz))
-        # round down, max value
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.0000004 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.00000049 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.0000005 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.00000050 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999994 {tz_str}'", python=datetime(2001, 8, 22, 23, 59, 59, 999999, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0000001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz)
+        )
+        # round down, max value
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0000004 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.00000049 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz),
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0000005 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.00000050 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0, tzinfo=tz),
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999994 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999, tzinfo=tz),
         )
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 23:59:59.9999994999 {tz_str}'",
@@ -459,38 +498,56 @@ async def test_timestamp_with_timezone(trino_connection, tz_str):
         )
         # round up
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 12:34:56.123456789 {tz_str}'", python=datetime(2001, 8, 22, 12, 34, 56, 123457, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 12:34:56.123456789 {tz_str}'",
+            python=datetime(2001, 8, 22, 12, 34, 56, 123457, tzinfo=tz),
         )
         # round up, min value
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.000000500001 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.000000500001 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz),
         )
         # round up, max value
-        .add_field(sql=f"TIMESTAMP '2001-08-22 00:00:00.0000009 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.00000099999 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0000009 {tz_str}'", python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.00000099999 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1, tzinfo=tz),
         )
         # round up to next day, min value
-        .add_field(sql=f"TIMESTAMP '2001-08-22 23:59:59.9999995 {tz_str}'", python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.999999500001 {tz_str}'", python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz)
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999995 {tz_str}'", python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.999999500001 {tz_str}'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz),
         )
         # round up to next day, max value
-        .add_field(sql=f"TIMESTAMP '2001-08-22 23:59:59.9999999 {tz_str}'", python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz))
-        .add_field(sql=f"TIMESTAMP '2001-08-22 23:59:59.999999999 {tz_str}'", python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz))
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999999 {tz_str}'", python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz)
+        )
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.999999999 {tz_str}'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0, tzinfo=tz),
+        )
         # ce
-        .add_field(sql=f"TIMESTAMP '0001-01-01 01:23:45.123 {tz_str}'", python=datetime(1, 1, 1, 1, 23, 45, 123000, tzinfo=tz))
+        .add_field(
+            sql=f"TIMESTAMP '0001-01-01 01:23:45.123 {tz_str}'", python=datetime(1, 1, 1, 1, 23, 45, 123000, tzinfo=tz)
+        )
         # Julian calendar
         .add_field(
-            sql=f"TIMESTAMP '1582-10-04 01:23:45.123 {tz_str}'", python=datetime(1582, 10, 4, 1, 23, 45, 123000, tzinfo=tz)
+            sql=f"TIMESTAMP '1582-10-04 01:23:45.123 {tz_str}'",
+            python=datetime(1582, 10, 4, 1, 23, 45, 123000, tzinfo=tz),
         )
         # during switch
         .add_field(
-            sql=f"TIMESTAMP '1582-10-05 01:23:45.123 {tz_str}'", python=datetime(1582, 10, 5, 1, 23, 45, 123000, tzinfo=tz)
+            sql=f"TIMESTAMP '1582-10-05 01:23:45.123 {tz_str}'",
+            python=datetime(1582, 10, 5, 1, 23, 45, 123000, tzinfo=tz),
         )
         # Gregorian calendar
         .add_field(
-            sql=f"TIMESTAMP '1582-10-14 01:23:45.123 {tz_str}'", python=datetime(1582, 10, 14, 1, 23, 45, 123000, tzinfo=tz)
+            sql=f"TIMESTAMP '1582-10-14 01:23:45.123 {tz_str}'",
+            python=datetime(1582, 10, 14, 1, 23, 45, 123000, tzinfo=tz),
         )
     ).execute()
 
@@ -553,7 +610,10 @@ async def test_interval_day_to_second(trino_connection):
         .add_field(sql="INTERVAL '2' DAY", python=timedelta(days=2))
         .add_field(sql="INTERVAL '-2' DAY", python=timedelta(days=-2))
         .add_field(sql="INTERVAL '-2' SECOND", python=timedelta(seconds=-2))
-        .add_field(sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND", python=timedelta(days=1, seconds=40271, microseconds=116000))
+        .add_field(
+            sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
+            python=timedelta(days=1, seconds=40271, microseconds=116000),
+        )
         .add_field(sql="INTERVAL '-5 23:59:57.000' DAY TO SECOND", python=timedelta(days=-6, seconds=3))
         .add_field(sql="INTERVAL '12 10:45' DAY TO MINUTE", python=timedelta(days=12, seconds=38700))
         .add_field(sql="INTERVAL '45:32.123' MINUTE TO SECOND", python=timedelta(seconds=2732, microseconds=123000))
@@ -605,7 +665,9 @@ async def test_array(trino_connection):
         SqlTest(trino_connection)
         .add_field(sql="ARRAY[DATE '1970-01-01', null]", python=[date(1970, 1, 1), None])
         .add_field(sql="ARRAY[TIME '01:01:01', null]", python=[time(1, 1, 1), None])
-        .add_field(sql="ARRAY[TIME '01:01:01 +05:30', null]", python=[time(1, 1, 1, tzinfo=create_timezone("+05:30")), None])
+        .add_field(
+            sql="ARRAY[TIME '01:01:01 +05:30', null]", python=[time(1, 1, 1, tzinfo=create_timezone("+05:30")), None]
+        )
         .add_field(sql="ARRAY[TIMESTAMP '1970-01-01 01:01:01', null]", python=[datetime(1970, 1, 1, 1, 1, 1), None])
         .add_field(
             sql="ARRAY[TIMESTAMP '1970-01-01 01:01:01 +05:30', null]",
@@ -666,7 +728,9 @@ async def test_map(trino_connection):
             has_nan=True,
         )
         .add_field(
-            sql="MAP(ARRAY[CAST('NaN' AS DOUBLE)], ARRAY[CAST('NaN' AS DOUBLE)])", python={math.nan: math.nan}, has_nan=True
+            sql="MAP(ARRAY[CAST('NaN' AS DOUBLE)], ARRAY[CAST('NaN' AS DOUBLE)])",
+            python={math.nan: math.nan},
+            has_nan=True,
         )
         .add_field(
             sql="MAP(ARRAY[1.2, 2.4, 4.8], ARRAY[1.2, 2.4, null])",
@@ -681,7 +745,8 @@ async def test_map(trino_connection):
             python={"a   ": "a", "null": None},
         )
         .add_field(
-            sql="MAP(ARRAY[X'', X'65683F', X'00'], ARRAY[X'', X'65683F', null])", python={b"": b"", b"eh?": b"eh?", b"\x00": None}
+            sql="MAP(ARRAY[X'', X'65683F', X'00'], ARRAY[X'', X'65683F', null])",
+            python={b"": b"", b"eh?": b"eh?", b"\x00": None},
         )
         .add_field(
             sql="MAP(ARRAY[JSON '1', JSON '{}', JSON 'null'], ARRAY[JSON '1', JSON '{}', null])",
@@ -709,7 +774,10 @@ async def test_map(trino_connection):
         )
         .add_field(
             sql="MAP(ARRAY[TIME '01:01:01 +05:30', TIME '23:59:59 -05:00'], ARRAY[TIME '01:01:01 +05:30', null])",
-            python={time_1.replace(tzinfo=tz_india): time_1.replace(tzinfo=tz_india), time_2.replace(tzinfo=tz_new_york): None},
+            python={
+                time_1.replace(tzinfo=tz_india): time_1.replace(tzinfo=tz_india),
+                time_2.replace(tzinfo=tz_new_york): None,
+            },
         )
         .add_field(
             sql="MAP("
@@ -766,7 +834,9 @@ async def test_uuid(trino_connection):
     await (
         SqlTest(trino_connection)
         .add_field(sql="CAST(null AS UUID)", python=None)
-        .add_field(sql="UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", python=uuid.UUID("12151fd2-7586-11e9-8f9e-2a86e4085a59"))
+        .add_field(
+            sql="UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", python=uuid.UUID("12151fd2-7586-11e9-8f9e-2a86e4085a59")
+        )
         .execute()
     )
 
@@ -783,7 +853,9 @@ async def test_digest(trino_connection):
         .add_field(sql="approx_set(1)", python="AgwBAIADRAA=")
         .add_field(sql="CAST(approx_set(1) AS P4HyperLogLog)", python="AwwAAAAg" + "A" * 2730 + "==")
         .add_field(sql="make_set_digest(1)", python="AQgAAAACCwEAgANEAAAgAAABAAAASsQF+7cDRAABAA==")
-        .add_field(sql="tdigest_agg(1)", python="AAAAAAAAAPA/AAAAAAAA8D8AAAAAAABZQAAAAAAAAPA/AQAAAAAAAAAAAPA/AAAAAAAA8D8=")
+        .add_field(
+            sql="tdigest_agg(1)", python="AAAAAAAAAPA/AAAAAAAA8D8AAAAAAABZQAAAAAAAAPA/AQAAAAAAAAAAAPA/AAAAAAAA8D8="
+        )
         .execute()
     )
 
