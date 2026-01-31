@@ -653,6 +653,7 @@ class TrinoRequest:
             request_timeout=self._request_timeout,
             handle_retry=self._handle_retry,
             client_session=ClientSession(user=self._client_session.user),
+            http_session=self._http_session,
         )
 
     @property

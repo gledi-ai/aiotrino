@@ -604,7 +604,7 @@ async def test_interval_year_to_month(trino_connection):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_interval_day_to_second(trino_connection):
-    (
+    await (
         SqlTest(trino_connection)
         .add_field(sql="CAST(null AS INTERVAL DAY TO SECOND)", python=None)
         .add_field(sql="INTERVAL '2' DAY", python=timedelta(days=2))
