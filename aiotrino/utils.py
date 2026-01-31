@@ -1,6 +1,9 @@
-from collections.abc import AsyncIterable, AsyncIterator
+from collections.abc import AsyncIterable
+from collections.abc import AsyncIterator
+
 
 _NOT_PROVIDED = object()  # sentinel object to detect when a kwarg was not given
+
 
 # Async Helper functions
 def aiter(obj, sentinel=_NOT_PROVIDED):
@@ -12,13 +15,13 @@ def aiter(obj, sentinel=_NOT_PROVIDED):
     """
     if sentinel is _NOT_PROVIDED:
         if not isinstance(obj, AsyncIterable):
-            raise TypeError(f'aiter expected an AsyncIterable, got {type(obj)}')
+            raise TypeError(f"aiter expected an AsyncIterable, got {type(obj)}")
         if isinstance(obj, AsyncIterator):
             return obj
         return (i async for i in obj)
 
     if not callable(obj):
-        raise TypeError(f'aiter expected an async callable, got {type(obj)}')
+        raise TypeError(f"aiter expected an async callable, got {type(obj)}")
 
     async def ait():
         while True:
@@ -28,6 +31,7 @@ def aiter(obj, sentinel=_NOT_PROVIDED):
             yield value
 
     return ait()
+
 
 def anext(async_iterator):
     if not hasattr(async_iterator, "__anext__"):

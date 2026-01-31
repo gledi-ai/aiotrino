@@ -1,4 +1,6 @@
-from typing import Dict, Optional, Union
+from typing import Dict
+from typing import Optional
+from typing import Union
 
 import pytest
 
@@ -78,7 +80,7 @@ def test_client_session_extra_client_tags() -> None:
         ("NONE", {"system": "NONE"}),
         ("ALL", {"system": "ALL"}),
         ({"hive": "fake"}, {"hive": "ROLE{fake}"}),
-    ]
+    ],
 )
 def test_client_session_roles(argument: Optional[Union[str, Dict[str, str]]], result: Dict[str, str]) -> None:
     session = ClientSession(user="user", roles=argument)

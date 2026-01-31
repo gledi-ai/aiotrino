@@ -13,4 +13,5 @@ from sqlalchemy.dialects import registry
 
 from .util import _url as URL  # noqa
 
+
 registry.register("aiotrino", "aiotrino.sqlalchemy.dialect", "AIOTrinoDialect")

@@ -3,22 +3,32 @@ from __future__ import annotations
 import abc
 import base64
 import uuid
-from datetime import date, datetime, time, timedelta, timezone, tzinfo
+from datetime import date
+from datetime import datetime
+from datetime import time
+from datetime import timedelta
+from datetime import timezone
+from datetime import tzinfo
 from decimal import Decimal
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Any
+from typing import Dict
+from typing import Generic
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import TypeVar
 from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
 
 from aiotrino import exceptions
-from aiotrino.types import (
-    POWERS_OF_TEN,
-    NamedRowTuple,
-    Time,
-    Timestamp,
-    TimestampWithTimeZone,
-    TimeWithTimeZone,
-)
+from aiotrino.types import POWERS_OF_TEN
+from aiotrino.types import NamedRowTuple
+from aiotrino.types import Time
+from aiotrino.types import Timestamp
+from aiotrino.types import TimestampWithTimeZone
+from aiotrino.types import TimeWithTimeZone
+
 
 T = TypeVar("T")
 
@@ -202,14 +212,21 @@ class IntervalDayToSecondMapper(ValueMapper[timedelta]):
         days, time = (value[1:] if is_negative else value).split(" ")
         hours, minutes, seconds_milliseconds = time.split(":")
         seconds, milliseconds = seconds_milliseconds.split(".")
-        days, hours, minutes, seconds, milliseconds = (int(days), int(hours), int(minutes), int(seconds), int(milliseconds))
+        days, hours, minutes, seconds, milliseconds = (
+            int(days),
+            int(hours),
+            int(minutes),
+            int(seconds),
+            int(milliseconds),
+        )
         if is_negative:
             days, hours, minutes, seconds, milliseconds = -days, -hours, -minutes, -seconds, -milliseconds
         try:
             return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
         except OverflowError as e:
             error_str = (
-                f"Could not convert '{value}' into the associated python type, as the value exceeds the maximum or minimum limit."
+                f"Could not convert '{value}' into the associated python type, "
+                "as the value exceeds the maximum or minimum limit."
             )
             raise exceptions.TrinoDataError(error_str) from e
 

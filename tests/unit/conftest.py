@@ -9,7 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
+from unittest.mock import patch
 
 import pytest
 
@@ -217,8 +218,7 @@ def sample_get_error_response_data():
             "errorType": "USER_ERROR",
             "failureInfo": {
                 "errorLocation": {"columnNumber": 15, "lineNumber": 1},
-                "message": "line 1:15: Schema must be specified "
-                "when session schema is not set",
+                "message": "line 1:15: Schema must be specified when session schema is not set",
                 "stack": [
                     "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:48)",
                     "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:43)",
@@ -246,7 +246,7 @@ def sample_get_error_response_data():
                     "io.trino.sql.analyzer.Analyzer.analyze(Analyzer.java:91)",
                     "io.trino.sql.analyzer.Analyzer.analyze(Analyzer.java:83)",
                     "io.trino.execution.SqlQueryExecution.analyze(SqlQueryExecution.java:269)",
-                    "io.trino.execution.SqlQueryExecution.\u003Cinit\u003E(SqlQueryExecution.java:190)",
+                    "io.trino.execution.SqlQueryExecution.\u003cinit\u003e(SqlQueryExecution.java:190)",
                     "io.trino.execution.SqlQueryExecution$SqlQueryExecutionFactory.createQueryExecution(SqlQueryExecution.java:806)",  # NOQA: E501
                     "io.trino.dispatcher.LocalDispatchQueryFactory.lambda$createDispatchQuery$0(LocalDispatchQueryFactory.java:132)",  # NOQA: E501
                     "io.trino.$gen.Trino_360____20210817_140756_2.call(Unknown Source)",
@@ -297,4 +297,5 @@ async def mock_get_and_post():
 
 def sqlalchemy_version() -> str:
     import sqlalchemy
+
     return sqlalchemy.__version__

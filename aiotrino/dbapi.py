@@ -17,6 +17,7 @@ https://www.python.org/dev/peps/pep-0249/ .
 Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -26,7 +27,10 @@ from collections import OrderedDict
 from decimal import Decimal
 from threading import Lock
 from time import time
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any
+from typing import NamedTuple
+from typing import Optional
+from typing import Union
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
@@ -37,20 +41,22 @@ import aiotrino.client
 import aiotrino.exceptions
 import aiotrino.logging
 from aiotrino import constants
-from aiotrino.exceptions import (
-    DatabaseError,
-    DataError,
-    Error,
-    IntegrityError,
-    InterfaceError,
-    InternalError,
-    NotSupportedError,
-    OperationalError,
-    ProgrammingError,
-    Warning,
-)
-from aiotrino.transaction import NO_TRANSACTION, IsolationLevel, Transaction
-from aiotrino.utils import aiter, anext
+from aiotrino.exceptions import DatabaseError
+from aiotrino.exceptions import DataError
+from aiotrino.exceptions import Error
+from aiotrino.exceptions import IntegrityError
+from aiotrino.exceptions import InterfaceError
+from aiotrino.exceptions import InternalError
+from aiotrino.exceptions import NotSupportedError
+from aiotrino.exceptions import OperationalError
+from aiotrino.exceptions import ProgrammingError
+from aiotrino.exceptions import Warning
+from aiotrino.transaction import NO_TRANSACTION
+from aiotrino.transaction import IsolationLevel
+from aiotrino.transaction import Transaction
+from aiotrino.utils import aiter
+from aiotrino.utils import anext
+
 
 __all__ = [
     # https://www.python.org/dev/peps/pep-0249/#globals
@@ -264,7 +270,9 @@ class Connection(object):
         # Creating session here because aiohttp requires it to be created inside the event loop.
         # The Connection only calls this from async functions so therefore it will be in event loop
         if self._http_session is None:
-            self._http_session = aiohttp.ClientSession(connector=aiotrino.client.TrinoTCPConnector(verify_ssl=self._verify_ssl))  # type: ignore
+            self._http_session = aiohttp.ClientSession(
+                connector=aiotrino.client.TrinoTCPConnector(verify_ssl=self._verify_ssl)
+            )  # type: ignore
 
         return aiotrino.client.TrinoRequest(
             host=self.host,
@@ -500,7 +508,10 @@ class Cursor(object):
         :param params: parameters to be bound.
         """
         sql = (
-            "EXECUTE IMMEDIATE '" + statement.replace("'", "''") + "' USING " + ",".join(map(self._format_prepared_param, params))
+            "EXECUTE IMMEDIATE '"
+            + statement.replace("'", "''")
+            + "' USING "
+            + ",".join(map(self._format_prepared_param, params))
         )
         return aiotrino.client.TrinoQuery(
             self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types
@@ -597,7 +608,9 @@ class Cursor(object):
 
     async def execute(self, operation, params=None):
         if params:
-            assert isinstance(params, (list, tuple)), "params must be a list or tuple containing the query parameter values"
+            assert isinstance(params, (list, tuple)), (
+                "params must be a list or tuple containing the query parameter values"
+            )
 
             if await self.connection._use_legacy_prepared_statements():
                 statement_name = self._generate_unique_statement_name()

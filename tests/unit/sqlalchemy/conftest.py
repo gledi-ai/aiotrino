@@ -12,7 +12,11 @@
 import pytest
 from sqlalchemy.sql.sqltypes import ARRAY
 
-from aiotrino.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP, SQLType
+from aiotrino.sqlalchemy.datatype import MAP
+from aiotrino.sqlalchemy.datatype import ROW
+from aiotrino.sqlalchemy.datatype import TIME
+from aiotrino.sqlalchemy.datatype import TIMESTAMP
+from aiotrino.sqlalchemy.datatype import SQLType
 
 
 @pytest.fixture(scope="session")
@@ -37,7 +41,7 @@ def assert_sqltype():
             _assert_sqltype(this.value_type, that.value_type)
         elif isinstance(this, ROW):
             assert len(this.attr_types) == len(that.attr_types)
-            for (this_attr, that_attr) in zip(this.attr_types, that.attr_types):
+            for this_attr, that_attr in zip(this.attr_types, that.attr_types, strict=False):
                 assert this_attr[0] == that_attr[0]
                 _assert_sqltype(this_attr[1], that_attr[1])
 

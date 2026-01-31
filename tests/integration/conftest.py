@@ -18,7 +18,10 @@ import pytest
 
 import aiotrino.logging
 from aiotrino.constants import DEFAULT_PORT
-from tests.development_server import TRINO_HOST, TRINO_VERSION, start_development_server
+from tests.development_server import TRINO_HOST
+from tests.development_server import TRINO_VERSION
+from tests.development_server import start_development_server
+
 
 logger = aiotrino.logging.get_logger(__name__)
 

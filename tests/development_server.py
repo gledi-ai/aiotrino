@@ -10,6 +10,7 @@ from testcontainers.localstack import LocalStackContainer
 
 from aiotrino.constants import DEFAULT_PORT
 
+
 MINIO_ROOT_USER = "minio-access-key"
 MINIO_ROOT_PASSWORD = "minio-secret-key"
 
@@ -27,7 +28,7 @@ def create_bucket(s3_client):
             print("Bucket exists!")
             return
     except s3_client.exceptions.ClientError as e:
-        if not e.response['Error']['Code'] == '404':
+        if not e.response["Error"]["Code"] == "404":
             print("An error occurred:", e)
             return
 
@@ -51,12 +52,14 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
         network = Network().create()
         supports_spooling_protocol = TRINO_VERSION == "latest" or int(TRINO_VERSION) >= 466
         if supports_spooling_protocol:
-            localstack = LocalStackContainer(image="localstack/localstack:latest", region_name="us-east-1") \
-                .with_name("localstack") \
-                .with_network(network) \
-                .with_bind_ports(4566, 4566) \
-                .with_bind_ports(4571, 4571) \
+            localstack = (
+                LocalStackContainer(image="localstack/localstack:latest", region_name="us-east-1")
+                .with_name("localstack")
+                .with_network(network)
+                .with_bind_ports(4566, 4566)
+                .with_bind_ports(4571, 4571)
                 .with_env("SERVICES", "s3")
+            )
 
             # Start the container
             print("Starting LocalStack container...")
@@ -68,29 +71,29 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
             # create spooling bucket
             create_bucket(localstack.get_client("s3"))
 
-        trino = DockerContainer(f"trinodb/trino:{trino_version}") \
-            .with_name("trino") \
-            .with_network(network) \
-            .with_env("TRINO_CONFIG_DIR", "/etc/trino") \
+        trino = (
+            DockerContainer(f"trinodb/trino:{trino_version}")
+            .with_name("trino")
+            .with_network(network)
+            .with_env("TRINO_CONFIG_DIR", "/etc/trino")
             .with_bind_ports(DEFAULT_PORT, port)
+        )
 
         root = Path(__file__).parent.parent
 
-        trino = trino \
-            .with_volume_mapping(str(root / "etc/catalog"), "/etc/trino/catalog")
+        trino = trino.with_volume_mapping(str(root / "etc/catalog"), "/etc/trino/catalog")
 
         # Enable spooling config
         if supports_spooling_protocol:
-            trino \
-                .with_volume_mapping(
-                    str(root / "etc/spooling-manager.properties"),
-                    "/etc/trino/spooling-manager.properties", "rw") \
-                .with_volume_mapping(str(root / "etc/jvm.config"), "/etc/trino/jvm.config") \
-                .with_volume_mapping(str(root / "etc/config.properties"), "/etc/trino/config.properties")
+            trino.with_volume_mapping(
+                str(root / "etc/spooling-manager.properties"), "/etc/trino/spooling-manager.properties", "rw"
+            ).with_volume_mapping(str(root / "etc/jvm.config"), "/etc/trino/jvm.config").with_volume_mapping(
+                str(root / "etc/config.properties"), "/etc/trino/config.properties"
+            )
         else:
-            trino \
-                .with_volume_mapping(str(root / "etc/jvm-pre-466.config"), "/etc/trino/jvm.config") \
-                .with_volume_mapping(str(root / "etc/config-pre-466.properties"), "/etc/trino/config.properties")
+            trino.with_volume_mapping(
+                str(root / "etc/jvm-pre-466.config"), "/etc/trino/jvm.config"
+            ).with_volume_mapping(str(root / "etc/config-pre-466.properties"), "/etc/trino/config.properties")
 
         print("Starting Trino container...")
         trino.start()

@@ -13,13 +13,22 @@
 # limitations under the License.
 import re
 from collections.abc import Iterator
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
+from typing import Union
 
 import sqlalchemy
-from sqlalchemy import func, util
+from sqlalchemy import func
+from sqlalchemy import util
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
+from sqlalchemy.sql.type_api import TypeDecorator
+from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.types import JSON
+
 
 SQLType = Union[TypeEngine, Type[TypeEngine]]
 
@@ -113,13 +122,11 @@ class _FormatTypeMixin:
 class _JSONFormatter:
     @staticmethod
     def format_index(value):
-        return "$[\"%s\"]" % value
+        return '$["%s"]' % value
 
     @staticmethod
     def format_path(value):
-        return "$%s" % (
-            "".join(["[\"%s\"]" % elem for elem in value])
-        )
+        return "$%s" % ("".join(['["%s"]' % elem for elem in value]))
 
 
 class JSONIndexType(_FormatTypeMixin, sqltypes.JSON.JSONIndexType):
@@ -232,7 +239,7 @@ def aware_split(
         elif character == close_bracket:
             parens -= 1
         elif character == quote:
-            if quotes and string[j - len(escaped_quote) + 1: j + 1] != escaped_quote:
+            if quotes and string[j - len(escaped_quote) + 1 : j + 1] != escaped_quote:
                 quotes = False
             elif not quotes:
                 quotes = True
@@ -276,7 +283,7 @@ def parse_sqltype(type_str: str) -> TypeEngine:
     type_class = _type_map[type_name]
     type_args = [int(o.strip()) for o in type_opts.split(",")] if type_opts else []
     if type_name in ("time", "timestamp"):
-        type_kwargs: Dict[str, Any] = dict()
+        type_kwargs: Dict[str, Any] = {}
         if type_str.endswith("with time zone"):
             type_kwargs["timezone"] = True
         if type_opts is not None:

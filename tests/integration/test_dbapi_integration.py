@@ -13,9 +13,14 @@ import math
 import sys
 import time as t
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date
+from datetime import datetime
+from datetime import time
+from datetime import timedelta
+from datetime import timezone
 from decimal import Decimal
-from typing import AsyncGenerator, Tuple
+from typing import AsyncGenerator
+from typing import Tuple
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -26,15 +31,25 @@ from tzlocal import get_localzone_name  # type: ignore
 import aiotrino
 from aiotrino import constants
 from aiotrino.client import SegmentIterator
-from aiotrino.dbapi import Connection, Cursor, DescribeOutput, TimeBoundLRUCache
-from aiotrino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
+from aiotrino.dbapi import Connection
+from aiotrino.dbapi import Cursor
+from aiotrino.dbapi import DescribeOutput
+from aiotrino.dbapi import TimeBoundLRUCache
+from aiotrino.exceptions import NotSupportedError
+from aiotrino.exceptions import TrinoQueryError
+from aiotrino.exceptions import TrinoUserError
 from aiotrino.mapper import RowMapperFactory
 from aiotrino.transaction import IsolationLevel
 from tests.integration.conftest import trino_version
 
 
 @pytest_asyncio.fixture(params=[None, "json+zstd", "json+lz4", "json"], loop_scope="session")
-async def trino_connection(request, run_trino) -> AsyncGenerator[Connection, None,]:
+async def trino_connection(
+    request, run_trino
+) -> AsyncGenerator[
+    Connection,
+    None,
+]:
     host, port = run_trino
     encoding = request.param
 
@@ -49,7 +64,7 @@ async def trino_connection(request, run_trino) -> AsyncGenerator[Connection, Non
 async def trino_connection_with_transaction(run_trino) -> AsyncGenerator[Connection, None]:
     host, port = run_trino
 
-    conn =  aiotrino.dbapi.Connection(
+    conn = aiotrino.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -78,7 +93,9 @@ async def trino_connection_in_autocommit(run_trino) -> AsyncGenerator[Connection
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def trino_connection_with_legacy_prepared_statements(legacy_prepared_statements, run_trino) -> AsyncGenerator[Connection, None]:
+async def trino_connection_with_legacy_prepared_statements(
+    legacy_prepared_statements, run_trino
+) -> AsyncGenerator[Connection, None]:
     host, port = run_trino
 
     conn = aiotrino.dbapi.Connection(
@@ -131,13 +148,16 @@ async def test_select_query_result_iteration(trino_connection: Connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
-async def test_select_query_result_iteration_statement_params(trino_connection_with_legacy_prepared_statements: Connection):
+async def test_select_query_result_iteration_statement_params(
+    trino_connection_with_legacy_prepared_statements: Connection,
+):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         await cur.execute(
             """
@@ -151,13 +171,13 @@ async def test_select_query_result_iteration_statement_params(trino_connection_w
             ) x (id, name, letter)
             WHERE id >= ?
             """,
-            params=(3,)  # expecting all the rows with id >= 3
+            params=(3,),  # expecting all the rows with id >= 3
         )
         rows = await cur.fetchall()
         assert len(rows) == 3
-        assert [3, 'three', 'c'] in rows
-        assert [4, 'four', 'd'] in rows
-        assert [5, 'five', 'e'] in rows
+        assert [3, "three", "c"] in rows
+        assert [4, "four", "d"] in rows
+        assert [5, "five", "e"] in rows
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -165,11 +185,12 @@ async def test_select_query_result_iteration_statement_params(trino_connection_w
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_none_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -185,11 +206,12 @@ async def test_none_query_param(trino_connection_with_legacy_prepared_statements
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_string_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -205,11 +227,12 @@ async def test_string_query_param(trino_connection_with_legacy_prepared_statemen
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_execute_many(trino_connection_with_legacy_prepared_statements: Connection):
     try:
@@ -244,11 +267,12 @@ async def test_execute_many(trino_connection_with_legacy_prepared_statements: Co
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_execute_many_without_params(trino_connection_with_legacy_prepared_statements: Connection):
     try:
@@ -256,7 +280,9 @@ async def test_execute_many_without_params(trino_connection_with_legacy_prepared
             await cur.execute("CREATE TABLE memory.default.test_execute_many_without_param (value varchar)")
             await cur.fetchall()
             with pytest.raises(TrinoUserError) as e:
-                await cur.executemany("INSERT INTO memory.default.test_execute_many_without_param (value) VALUES (?)", [])
+                await cur.executemany(
+                    "INSERT INTO memory.default.test_execute_many_without_param (value) VALUES (?)", []
+                )
                 await cur.fetchall()
             assert "Incorrect number of parameters: expected 1 but found 0" in str(e.value)
     finally:
@@ -269,11 +295,12 @@ async def test_execute_many_without_params(trino_connection_with_legacy_prepared
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_execute_many_select(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -286,9 +313,7 @@ async def test_execute_many_select(trino_connection_with_legacy_prepared_stateme
 @pytest.mark.parametrize("connection_legacy_primitive_types", [None, True, False])
 @pytest.mark.parametrize("cursor_legacy_primitive_types", [None, True, False])
 async def test_legacy_primitive_types_with_connection_and_cursor(
-        connection_legacy_primitive_types,
-        cursor_legacy_primitive_types,
-        run_trino
+    connection_legacy_primitive_types, cursor_legacy_primitive_types, run_trino
 ):
     host, port = run_trino
 
@@ -330,10 +355,10 @@ async def test_legacy_primitive_types_with_connection_and_cursor(
 
     if not expected_legacy_primitive_types:
         assert len(rows[0]) == 6
-        assert rows[0][0] == Decimal('0.142857')
+        assert rows[0][0] == Decimal("0.142857")
         assert rows[0][1] == date(2018, 1, 1)
         assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
-        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=ZoneInfo('UTC'))
+        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC"))
         assert rows[0][4] == datetime(2019, 1, 1)
         assert rows[0][5] == time(0, 0, 0, 0)
     else:
@@ -341,13 +366,13 @@ async def test_legacy_primitive_types_with_connection_and_cursor(
             assert isinstance(value, str)
 
         assert len(rows[0]) == 7
-        assert rows[0][0] == '0.142857'
-        assert rows[0][1] == '2018-01-01'
-        assert rows[0][2] == '2019-01-01 00:00:00.000 +01:00'
-        assert rows[0][3] == '2019-01-01 00:00:00.000 UTC'
-        assert rows[0][4] == '2019-01-01 00:00:00.000'
-        assert rows[0][5] == '00:00:00.000'
-        assert rows[0][6] == '-2001-08-22'
+        assert rows[0][0] == "0.142857"
+        assert rows[0][1] == "2018-01-01"
+        assert rows[0][2] == "2019-01-01 00:00:00.000 +01:00"
+        assert rows[0][3] == "2019-01-01 00:00:00.000 UTC"
+        assert rows[0][4] == "2019-01-01 00:00:00.000"
+        assert rows[0][5] == "00:00:00.000"
+        assert rows[0][6] == "-2001-08-22"
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -355,18 +380,19 @@ async def test_legacy_primitive_types_with_connection_and_cursor(
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_decimal_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        await cur.execute("SELECT ?", params=(Decimal('1112.142857'),))
+        await cur.execute("SELECT ?", params=(Decimal("1112.142857"),))
         rows = await cur.fetchall()
 
-        assert rows[0][0] == Decimal('1112.142857')
+        assert rows[0][0] == Decimal("1112.142857")
         await assert_cursor_description(cur, trino_type="decimal(10, 6)", precision=10, scale=6)
 
 
@@ -375,27 +401,28 @@ async def test_decimal_query_param(trino_connection_with_legacy_prepared_stateme
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_decimal_scientific_notation_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        await cur.execute("SELECT ?", params=(Decimal('0E-10'),))
+        await cur.execute("SELECT ?", params=(Decimal("0E-10"),))
         rows = await cur.fetchall()
 
-        assert rows[0][0] == Decimal('0E-10')
+        assert rows[0][0] == Decimal("0E-10")
         await assert_cursor_description(cur, trino_type="decimal(10, 10)", precision=10, scale=10)
 
         # Ensure we don't convert to floats
-        assert Decimal('0.1') == Decimal('1E-1') != 0.1
+        assert Decimal("0.1") == Decimal("1E-1") != 0.1
 
-        await cur.execute("SELECT ?", params=(Decimal('1E-1'),))
+        await cur.execute("SELECT ?", params=(Decimal("1E-1"),))
         rows = await cur.fetchall()
 
-        assert rows[0][0] == Decimal('1E-1')
+        assert rows[0][0] == Decimal("1E-1")
         await assert_cursor_description(cur, trino_type="decimal(1, 1)", precision=1, scale=1)
 
 
@@ -414,15 +441,16 @@ async def test_null_decimal(trino_connection: Connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_biggest_decimal(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        params = Decimal('99999999999999999999999999999999999999')
+        params = Decimal("99999999999999999999999999999999999999")
         await cur.execute("SELECT ?", params=(params,))
         rows = await cur.fetchall()
 
@@ -435,15 +463,16 @@ async def test_biggest_decimal(trino_connection_with_legacy_prepared_statements:
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_smallest_decimal(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        params = Decimal('-99999999999999999999999999999999999999')
+        params = Decimal("-99999999999999999999999999999999999999")
         await cur.execute("SELECT ?", params=(params,))
         rows = await cur.fetchall()
 
@@ -456,15 +485,16 @@ async def test_smallest_decimal(trino_connection_with_legacy_prepared_statements
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_highest_precision_decimal(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        params = Decimal('0.99999999999999999999999999999999999999')
+        params = Decimal("0.99999999999999999999999999999999999999")
         await cur.execute("SELECT ?", params=(params,))
         rows = await cur.fetchall()
 
@@ -477,11 +507,12 @@ async def test_highest_precision_decimal(trino_connection_with_legacy_prepared_s
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_datetime_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -499,15 +530,16 @@ async def test_datetime_query_param(trino_connection_with_legacy_prepared_statem
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_datetime_with_utc_time_zone_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo('UTC'))
+        params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo("UTC"))
 
         await cur.execute("SELECT ?", params=(params,))
         rows = await cur.fetchall()
@@ -521,13 +553,16 @@ async def test_datetime_with_utc_time_zone_query_param(trino_connection_with_leg
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
-async def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection_with_legacy_prepared_statements: Connection):
+async def test_datetime_with_numeric_offset_time_zone_query_param(
+    trino_connection_with_legacy_prepared_statements: Connection,
+):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         tz = timezone(-timedelta(hours=5, minutes=30))
 
@@ -545,15 +580,16 @@ async def test_datetime_with_numeric_offset_time_zone_query_param(trino_connecti
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_datetime_with_named_time_zone_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo('America/Los_Angeles'))
+        params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo("America/Los_Angeles"))
 
         await cur.execute("SELECT ?", params=(params,))
         rows = await cur.fetchall()
@@ -597,16 +633,19 @@ async def test_datetime_with_time_zone_numeric_offset(trino_connection: Connecti
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
-async def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection_with_legacy_prepared_statements: Connection):
+async def test_datetimes_with_time_zone_in_dst_gap_query_param(
+    trino_connection_with_legacy_prepared_statements: Connection,
+):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         # This is a datetime that lies within a DST transition and not actually exists.
-        params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=ZoneInfo('Europe/Brussels'))
+        params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=ZoneInfo("Europe/Brussels"))
         with pytest.raises(aiotrino.exceptions.TrinoUserError):
             await cur.execute("SELECT ?", params=(params,))
             await cur.fetchall()
@@ -617,23 +656,24 @@ async def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection_
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
-@pytest.mark.parametrize('fold', [0, 1])
+@pytest.mark.parametrize("fold", [0, 1])
 async def test_doubled_datetimes(fold, trino_connection_with_legacy_prepared_statements: Connection):
     # Trino doesn't distinguish between doubled datetimes that lie within a DST transition.
     # See also https://github.com/trinodb/trino/issues/5781
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        params = datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo('US/Eastern'), fold=fold)
+        params = datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo("US/Eastern"), fold=fold)
 
         await cur.execute("SELECT ?", params=(params,))
         rows = await cur.fetchall()
 
-        assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo('US/Eastern'))
+        assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo("US/Eastern"))
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -641,11 +681,12 @@ async def test_doubled_datetimes(fold, trino_connection_with_legacy_prepared_sta
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_date_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -673,11 +714,11 @@ async def test_unsupported_python_dates(trino_connection: Connection):
     async with await trino_connection.cursor() as cur:
         # dates below python min (1-1-1) or above max date (9999-12-31) are not supported
         for unsupported_date in [
-            '-0001-01-01',
-            '0000-01-01',
-            '10000-01-01',
-            '-4999999-01-01',  # Trino min date
-            '5000000-12-31',  # Trino max date
+            "-0001-01-01",
+            "0000-01-01",
+            "10000-01-01",
+            "-4999999-01-01",  # Trino min date
+            "5000000-12-31",  # Trino max date
         ]:
             with pytest.raises(aiotrino.exceptions.TrinoDataError):
                 await cur.execute(f"SELECT DATE '{unsupported_date}'")
@@ -689,11 +730,12 @@ async def test_unsupported_python_dates(trino_connection: Connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_supported_special_dates_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -731,7 +773,7 @@ async def test_char(trino_connection: Connection):
         await cur.execute("SELECT CHAR 'trino'")
         rows = await cur.fetchall()
 
-        assert rows[0][0] == 'trino'
+        assert rows[0][0] == "trino"
         await assert_cursor_description(cur, trino_type="char(5)", size=5)
 
 
@@ -740,11 +782,12 @@ async def test_char(trino_connection: Connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_time_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -762,15 +805,16 @@ async def test_time_query_param(trino_connection_with_legacy_prepared_statements
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_time_with_named_time_zone_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-        params = time(16, 43, 22, 320000, tzinfo=ZoneInfo('Asia/Shanghai'))
+        params = time(16, 43, 22, 320000, tzinfo=ZoneInfo("Asia/Shanghai"))
 
         await cur.execute("SELECT ?", params=(params,))
         rows = await cur.fetchall()
@@ -784,13 +828,16 @@ async def test_time_with_named_time_zone_query_param(trino_connection_with_legac
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
-async def test_time_with_numeric_offset_time_zone_query_param(trino_connection_with_legacy_prepared_statements: Connection):
+async def test_time_with_numeric_offset_time_zone_query_param(
+    trino_connection_with_legacy_prepared_statements: Connection,
+):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         tz = timezone(-timedelta(hours=8, minutes=0))
         params = time(16, 43, 22, 320000, tzinfo=tz)
@@ -860,18 +907,19 @@ async def test_null_date_with_time_zone(trino_connection: Connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 @pytest.mark.parametrize(
     "binary_input",
     [
         bytearray("a", "utf-8"),
         bytearray("a", "ascii"),
-        bytearray(b'\x00\x00\x00\x00'),
+        bytearray(b"\x00\x00\x00\x00"),
         bytearray(4),
         bytearray([1, 2, 3]),
     ],
@@ -889,11 +937,12 @@ async def test_binary_query_param(binary_input, trino_connection_with_legacy_pre
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_array_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -918,11 +967,12 @@ async def test_array_query_param(trino_connection_with_legacy_prepared_statement
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_array_none_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -944,11 +994,12 @@ async def test_array_none_query_param(trino_connection_with_legacy_prepared_stat
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_array_none_and_another_type_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -970,11 +1021,12 @@ async def test_array_none_and_another_type_query_param(trino_connection_with_leg
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_array_timestamp_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -996,17 +1048,18 @@ async def test_array_timestamp_query_param(trino_connection_with_legacy_prepared
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_array_timestamp_with_timezone_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         params = [
-            datetime(2020, 1, 1, 0, 0, 0, tzinfo=ZoneInfo('UTC')),
-            datetime(2020, 1, 2, 0, 0, 0, tzinfo=ZoneInfo('UTC')),
+            datetime(2020, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
+            datetime(2020, 1, 2, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
         ]
 
         await cur.execute("SELECT ?", params=(params,))
@@ -1025,11 +1078,12 @@ async def test_array_timestamp_with_timezone_query_param(trino_connection_with_l
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_dict_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1049,11 +1103,12 @@ async def test_dict_query_param(trino_connection_with_legacy_prepared_statements
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_dict_timestamp_query_param_types(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1069,11 +1124,12 @@ async def test_dict_timestamp_query_param_types(trino_connection_with_legacy_pre
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_boolean_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1093,11 +1149,12 @@ async def test_boolean_query_param(trino_connection_with_legacy_prepared_stateme
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_row(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1113,11 +1170,12 @@ async def test_row(trino_connection_with_legacy_prepared_statements: Connection)
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_nested_row(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1140,8 +1198,8 @@ async def test_named_row(trino_connection: Connection):
     assert rows[0][0].x == 1
     assert rows[0][0].y == 2.0
 
-    assert rows[0][0].__annotations__["names"] == ['x', 'y']
-    assert rows[0][0].__annotations__["types"] == ['bigint', 'double']
+    assert rows[0][0].__annotations__["names"] == ["x", "y"]
+    assert rows[0][0].__annotations__["types"] == ["bigint", "double"]
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1152,33 +1210,35 @@ async def test_named_row_duplicate_names(trino_connection: Connection):
 
     assert rows[0][0] == (1, 2.0)
     with pytest.raises(ValueError, match="Ambiguous row field reference: x"):
-        rows[0][0].x
+        rows[0][0].x  # noqa: B018
 
-    assert rows[0][0].__annotations__["names"] == ['x', 'x']
-    assert rows[0][0].__annotations__["types"] == ['bigint', 'double']
+    assert rows[0][0].__annotations__["names"] == ["x", "x"]
+    assert rows[0][0].__annotations__["types"] == ["bigint", "double"]
     assert str(rows[0][0]) == "(1, 2.0)"
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_nested_named_row(trino_connection: Connection):
     async with await trino_connection.cursor() as cur:
-        await cur.execute("SELECT CAST(ROW(DECIMAL '2.3', ROW(1, 'test')) AS ROW(x DECIMAL(3,2), y ROW(x BIGINT, y VARCHAR)))")
+        await cur.execute(
+            "SELECT CAST(ROW(DECIMAL '2.3', ROW(1, 'test')) AS ROW(x DECIMAL(3,2), y ROW(x BIGINT, y VARCHAR)))"
+        )
         rows = await cur.fetchall()
 
-    assert rows[0][0] == (Decimal('2.3'), (1, 'test'))
-    assert rows[0][0][0] == Decimal('2.3')
-    assert rows[0][0][1] == (1, 'test')
+    assert rows[0][0] == (Decimal("2.3"), (1, "test"))
+    assert rows[0][0][0] == Decimal("2.3")
+    assert rows[0][0][1] == (1, "test")
     assert rows[0][0][1][0] == 1
-    assert rows[0][0][1][1] == 'test'
-    assert rows[0][0].x == Decimal('2.3')
+    assert rows[0][0][1][1] == "test"
+    assert rows[0][0].x == Decimal("2.3")
     assert rows[0][0].y.x == 1
-    assert rows[0][0].y.y == 'test'
+    assert rows[0][0].y.y == "test"
 
-    assert rows[0][0].__annotations__["names"] == ['x', 'y']
-    assert rows[0][0].__annotations__["types"] == ['decimal', 'row']
+    assert rows[0][0].__annotations__["names"] == ["x", "y"]
+    assert rows[0][0].__annotations__["types"] == ["decimal", "row"]
 
-    assert rows[0][0].y.__annotations__["names"] == ['x', 'y']
-    assert rows[0][0].y.__annotations__["types"] == ['bigint', 'varchar']
+    assert rows[0][0].y.__annotations__["names"] == ["x", "y"]
+    assert rows[0][0].y.__annotations__["types"] == ["bigint", "varchar"]
     assert str(rows[0][0]) == "(x: Decimal('2.30'), y: (x: 1, y: 'test'))"
 
 
@@ -1187,11 +1247,12 @@ async def test_nested_named_row(trino_connection: Connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_float_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1207,11 +1268,12 @@ async def test_float_query_param(trino_connection_with_legacy_prepared_statement
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_float_nan_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1228,11 +1290,12 @@ async def test_float_nan_query_param(trino_connection_with_legacy_prepared_state
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_float_inf_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1253,11 +1316,12 @@ async def test_float_inf_query_param(trino_connection_with_legacy_prepared_state
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_int_query_param(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
@@ -1279,21 +1343,25 @@ async def test_int_query_param(trino_connection_with_legacy_prepared_statements:
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
-@pytest.mark.parametrize('params', [
-    'NOT A LIST OR TUPPLE',
-    {'invalid', 'params'},
-    object,
-])
+@pytest.mark.parametrize(
+    "params",
+    [
+        "NOT A LIST OR TUPPLE",
+        {"invalid", "params"},
+        object,
+    ],
+)
 async def test_select_query_invalid_params(params, trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         with pytest.raises(AssertionError):
-            await cur.execute('SELECT ?', params=params)
+            await cur.execute("SELECT ?", params=params)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1315,7 +1383,7 @@ async def test_select_cursor_iteration(trino_connection: Connection):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_execute_chaining(trino_connection: Connection):
     async with await trino_connection.cursor() as cur:
-        assert (await (await cur.execute('SELECT 1')).fetchone())[0] == 1
+        assert (await (await cur.execute("SELECT 1")).fetchone())[0] == 1
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1465,8 +1533,7 @@ async def test_transaction_multiple(trino_connection_with_transaction: Connectio
 
 
 @pytest.mark.asyncio(loop_scope="session")
-@pytest.mark.skipif(trino_version() == 351, reason="Autocommit behaves "
-                                                   "differently in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="Autocommit behaves differently in older Trino versions")
 async def test_transaction_autocommit(trino_connection_in_autocommit: Connection):
     async with trino_connection_in_autocommit as connection:
         await connection.start_transaction()
@@ -1476,10 +1543,10 @@ async def test_transaction_autocommit(trino_connection_in_autocommit: Connection
                 """
                 CREATE TABLE memory.default.nation
                 AS SELECT * from tpch.tiny.nation
-                """)
+                """
+            )
             await cur.fetchall()
-        assert "Catalog only supports writes using autocommit: memory" \
-               in str(transaction_error.value)
+        assert "Catalog only supports writes using autocommit: memory" in str(transaction_error.value)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1487,15 +1554,15 @@ async def test_transaction_autocommit(trino_connection_in_autocommit: Connection
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 async def test_invalid_query_throws_correct_error(trino_connection_with_legacy_prepared_statements: Connection):
-    """Tests that an invalid query raises the correct exception
-    """
+    """Tests that an invalid query raises the correct exception"""
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         with pytest.raises(TrinoQueryError):
             await cur.execute(
@@ -1509,33 +1576,33 @@ async def test_invalid_query_throws_correct_error(trino_connection_with_legacy_p
 @pytest.mark.asyncio(loop_scope="session")
 async def test_eager_loading_cursor_description(trino_connection: Connection):
     description_expected = [
-        ('node_id', 'varchar', None, None, None, None, None),
-        ('http_uri', 'varchar', None, None, None, None, None),
-        ('node_version', 'varchar', None, None, None, None, None),
-        ('coordinator', 'boolean', None, None, None, None, None),
-        ('state', 'varchar', None, None, None, None, None),
+        ("node_id", "varchar", None, None, None, None, None),
+        ("http_uri", "varchar", None, None, None, None, None),
+        ("node_version", "varchar", None, None, None, None, None),
+        ("coordinator", "boolean", None, None, None, None, None),
+        ("state", "varchar", None, None, None, None, None),
     ]
 
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SELECT * FROM system.runtime.nodes')
+        await cur.execute("SELECT * FROM system.runtime.nodes")
         description_before = await cur.get_description()
 
         assert description_before is not None
         assert len(description_before) == len(description_expected)
-        assert all([b == e] for b, e in zip(description_before, description_expected))
+        assert all([b == e] for b, e in zip(description_before, description_expected, strict=False))
 
         await cur.fetchone()
         description_after = await cur.get_description()
         assert description_after is not None
         assert len(description_after) == len(description_expected)
-        assert all([a == e] for a, e in zip(description_after, description_expected))
+        assert all([a == e] for a, e in zip(description_after, description_expected, strict=False))
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_info_uri(trino_connection: Connection):
     async with await trino_connection.cursor() as cur:
         assert cur.info_uri is None
-        await cur.execute('SELECT * FROM system.runtime.nodes')
+        await cur.execute("SELECT * FROM system.runtime.nodes")
         assert cur.info_uri is not None
         assert cur._query.query_id in cur.info_uri
         await cur.fetchall()
@@ -1576,17 +1643,16 @@ async def retrieve_client_tags_from_query(run_trino, client_tags):
     )
 
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SELECT 1')
+        await cur.execute("SELECT 1")
         await cur.fetchall()
 
     api_url = "http://" + trino_connection.host + ":" + str(trino_connection.port)
-    query_info = requests.post(api_url + "/ui/login", data={
-        "username": "admin",
-        "password": "",
-        "redirectPath": api_url + '/ui/api/query/' + cur._query.query_id
-    }).json()
+    query_info = requests.post(
+        api_url + "/ui/login",
+        data={"username": "admin", "password": "", "redirectPath": api_url + "/ui/api/query/" + cur._query.query_id},
+    ).json()
 
-    query_client_tags = query_info['session']['clientTags']
+    query_client_tags = query_info["session"]["clientTags"]
     return query_client_tags
 
 
@@ -1594,24 +1660,24 @@ async def retrieve_client_tags_from_query(run_trino, client_tags):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_use_catalog_schema(trino_connection: Connection):
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SELECT current_catalog, current_schema')
+        await cur.execute("SELECT current_catalog, current_schema")
         result = await cur.fetchall()
         assert result[0][0] is None
         assert result[0][1] is None
 
-        await cur.execute('USE tpch.tiny')
+        await cur.execute("USE tpch.tiny")
         await cur.fetchall()
-        await cur.execute('SELECT current_catalog, current_schema')
+        await cur.execute("SELECT current_catalog, current_schema")
         result = await cur.fetchall()
-        assert result[0][0] == 'tpch'
-        assert result[0][1] == 'tiny'
+        assert result[0][0] == "tpch"
+        assert result[0][1] == "tiny"
 
-        await cur.execute('USE tpcds.sf1')
+        await cur.execute("USE tpcds.sf1")
         await cur.fetchall()
-        await cur.execute('SELECT current_catalog, current_schema')
+        await cur.execute("SELECT current_catalog, current_schema")
         result = await cur.fetchall()
-        assert result[0][0] == 'tpcds'
-        assert result[0][1] == 'sf1'
+        assert result[0][0] == "tpcds"
+        assert result[0][1] == "sf1"
 
 
 @pytest.mark.skipif(trino_version() == 351, reason="current_catalog not supported in older Trino versions")
@@ -1624,36 +1690,34 @@ async def test_use_schema(run_trino):
     )
 
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SELECT current_catalog, current_schema')
+        await cur.execute("SELECT current_catalog, current_schema")
         result = await cur.fetchall()
-        assert result[0][0] == 'tpch'
+        assert result[0][0] == "tpch"
         assert result[0][1] is None
 
-        await cur.execute('USE tiny')
+        await cur.execute("USE tiny")
         await cur.fetchall()
-        await cur.execute('SELECT current_catalog, current_schema')
+        await cur.execute("SELECT current_catalog, current_schema")
         result = await cur.fetchall()
-        assert result[0][0] == 'tpch'
-        assert result[0][1] == 'tiny'
+        assert result[0][0] == "tpch"
+        assert result[0][1] == "tiny"
 
-        await cur.execute('USE sf1')
+        await cur.execute("USE sf1")
         await cur.fetchall()
-        await cur.execute('SELECT current_catalog, current_schema')
+        await cur.execute("SELECT current_catalog, current_schema")
         result = await cur.fetchall()
-        assert result[0][0] == 'tpch'
-        assert result[0][1] == 'sf1'
+        assert result[0][0] == "tpch"
+        assert result[0][1] == "sf1"
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_set_role(run_trino):
     host, port = run_trino
 
-    trino_connection = aiotrino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch"
-    )
+    trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch")
 
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SHOW TABLES FROM information_schema')
+        await cur.execute("SHOW TABLES FROM information_schema")
         await cur.fetchall()
         assert cur._request._client_session.roles == {}
 
@@ -1675,7 +1739,7 @@ async def test_set_role_in_connection(run_trino):
     )
 
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SHOW TABLES FROM information_schema')
+        await cur.execute("SHOW TABLES FROM information_schema")
         await cur.fetchall()
         assert_role_headers(cur, "system=ALL")
 
@@ -1684,11 +1748,9 @@ async def test_set_role_in_connection(run_trino):
 async def test_set_system_role_in_connection(run_trino):
     host, port = run_trino
 
-    trino_connection = aiotrino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch", roles="ALL"
-    )
+    trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch", roles="ALL")
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SHOW TABLES FROM information_schema')
+        await cur.execute("SHOW TABLES FROM information_schema")
         await cur.fetchall()
         assert_role_headers(cur, "system=ALL")
 
@@ -1702,37 +1764,37 @@ async def assert_role_headers(cursor, expected_header):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(None, marks=pytest.mark.skipif(
-            trino_version() > 417,
-            reason="This would use EXECUTE IMMEDIATE"))
-    ]
+        pytest.param(None, marks=pytest.mark.skipif(trino_version() > 417, reason="This would use EXECUTE IMMEDIATE")),
+    ],
 )
 @pytest.mark.asyncio(loop_scope="session")
 async def test_prepared_statements(trino_connection_with_legacy_prepared_statements: Connection):
     async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
         # Implicit prepared statements must work and deallocate statements on finish
         assert cur._request._client_session.prepared_statements == {}
-        await cur.execute('SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?', (1,))
+        await cur.execute("SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?", (1,))
         result = await cur.fetchall()
         assert result[0][0] == 1
         assert cur._request._client_session.prepared_statements == {}
 
         # Explicit prepared statements must also work
-        await cur.execute('PREPARE test_prepared_statements FROM SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?')
+        await cur.execute(
+            "PREPARE test_prepared_statements FROM SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?"
+        )
         await cur.fetchall()
-        assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
-        await cur.execute('EXECUTE test_prepared_statements USING 1')
+        assert "test_prepared_statements" in cur._request._client_session.prepared_statements
+        await cur.execute("EXECUTE test_prepared_statements USING 1")
         await cur.fetchall()
         assert result[0][0] == 1
 
         # An implicit prepared statement must not deallocate explicit statements
-        await cur.execute('SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?', (1,))
+        await cur.execute("SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?", (1,))
         result = await cur.fetchall()
         assert result[0][0] == 1
-        assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
+        assert "test_prepared_statements" in cur._request._client_session.prepared_statements
 
-        assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
-        await cur.execute('DEALLOCATE PREPARE test_prepared_statements')
+        assert "test_prepared_statements" in cur._request._client_session.prepared_statements
+        await cur.execute("DEALLOCATE PREPARE test_prepared_statements")
         await cur.fetchall()
         assert cur._request._client_session.prepared_statements == {}
 
@@ -1746,7 +1808,7 @@ async def test_set_timezone_in_connection(run_trino):
     )
 
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SELECT current_timezone()')
+        await cur.execute("SELECT current_timezone()")
         res = await cur.fetchall()
         assert res[0][0] == "Europe/Brussels"
 
@@ -1755,18 +1817,15 @@ async def test_set_timezone_in_connection(run_trino):
 async def test_connection_without_timezone(run_trino):
     host, port = run_trino
 
-    trino_connection = aiotrino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch"
-    )
+    trino_connection = aiotrino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch")
 
     async with await trino_connection.cursor() as cur:
-        await cur.execute('SELECT current_timezone()')
+        await cur.execute("SELECT current_timezone()")
         res = await cur.fetchall()
         session_tz = res[0][0]
         localzone = get_localzone_name()
-        assert session_tz == localzone or \
-            (session_tz == "UTC" and localzone == "Etc/UTC") \
-            # Workaround for difference between Trino timezone and tzlocal for UTC
+        assert session_tz == localzone or (session_tz == "UTC" and localzone == "Etc/UTC")
+        # Workaround for difference between Trino timezone and tzlocal for UTC
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -1774,15 +1833,18 @@ async def test_describe(run_trino):
     host, port = run_trino
 
     trino_connection = aiotrino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch",
+        host=host,
+        port=port,
+        user="test",
+        catalog="tpch",
     )
 
     async with await trino_connection.cursor() as cur:
         result = await cur.describe("SELECT 1, DECIMAL '1.0' as a")
 
         assert result == [
-            DescribeOutput(name='_col0', catalog='', schema='', table='', type='integer', type_size=4, aliased=False),
-            DescribeOutput(name='a', catalog='', schema='', table='', type='decimal(2,1)', type_size=8, aliased=True)
+            DescribeOutput(name="_col0", catalog="", schema="", table="", type="integer", type_size=4, aliased=False),
+            DescribeOutput(name="a", catalog="", schema="", table="", type="decimal(2,1)", type_size=8, aliased=True),
         ]
 
 
@@ -1791,7 +1853,10 @@ async def test_describe_table_query(run_trino):
     host, port = run_trino
 
     trino_connection = aiotrino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch",
+        host=host,
+        port=port,
+        user="test",
+        catalog="tpch",
     )
 
     async with await trino_connection.cursor() as cur:
@@ -1799,41 +1864,41 @@ async def test_describe_table_query(run_trino):
 
         assert result == [
             DescribeOutput(
-                name='nationkey',
-                catalog='tpch',
-                schema='tiny',
-                table='nation',
-                type='bigint',
+                name="nationkey",
+                catalog="tpch",
+                schema="tiny",
+                table="nation",
+                type="bigint",
                 type_size=8,
                 aliased=False,
             ),
             DescribeOutput(
-                name='name',
-                catalog='tpch',
-                schema='tiny',
-                table='nation',
-                type='varchar(25)',
+                name="name",
+                catalog="tpch",
+                schema="tiny",
+                table="nation",
+                type="varchar(25)",
                 type_size=0,
                 aliased=False,
             ),
             DescribeOutput(
-                name='regionkey',
-                catalog='tpch',
-                schema='tiny',
-                table='nation',
-                type='bigint',
+                name="regionkey",
+                catalog="tpch",
+                schema="tiny",
+                table="nation",
+                type="bigint",
                 type_size=8,
                 aliased=False,
             ),
             DescribeOutput(
-                name='comment',
-                catalog='tpch',
-                schema='tiny',
-                table='nation',
-                type='varchar(152)',
+                name="comment",
+                catalog="tpch",
+                schema="tiny",
+                table="nation",
+                type="varchar(152)",
                 type_size=0,
                 aliased=False,
-            )
+            ),
         ]
 
 
@@ -1854,8 +1919,7 @@ async def test_rowcount_create_table(trino_connection: Connection):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_rowcount_create_table_as_select(trino_connection: Connection):
     async with _TestTable(
-        trino_connection,
-        "memory.default.test_rowcount_ctas", "AS SELECT 1 a UNION ALL SELECT 2"
+        trino_connection, "memory.default.test_rowcount_ctas", "AS SELECT 1 a UNION ALL SELECT 2"
     ) as (_, cur):
         assert cur.rowcount == 2
 
@@ -1871,11 +1935,12 @@ async def test_rowcount_insert(trino_connection: Connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= 417,
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(trino_version() <= 417, reason="EXECUTE IMMEDIATE was introduced in version 418"),
+        ),
+        None,
+    ],
 )
 @pytest.mark.asyncio(loop_scope="session")
 async def test_prepared_statement_capability_autodetection(legacy_prepared_statements, run_trino):
@@ -1899,20 +1964,13 @@ async def test_prepared_statement_capability_autodetection(legacy_prepared_state
 
     verify = await connection.cursor()
     rows = await verify.execute("SELECT query FROM system.runtime.queries WHERE user = ?", [user_name])
-    statements = [
-        stmt
-        async for row in rows
-        for stmt in row
-    ]
+    statements = [stmt async for row in rows for stmt in row]
     assert statements.count("EXECUTE IMMEDIATE 'SELECT 1'") == (1 if legacy_prepared_statements is None else 0)
     await connection.close()
 
 
 @pytest.mark.asyncio(loop_scope="session")
-@pytest.mark.skipif(
-    trino_version() <= 466,
-    reason="spooling protocol was introduced in version 466"
-)
+@pytest.mark.skipif(trino_version() <= 466, reason="spooling protocol was introduced in version 466")
 async def test_select_query_spooled_segments(trino_connection: Connection):
     async with await trino_connection.cursor() as cur:
         await cur.execute("""SELECT l.*
@@ -1939,10 +1997,7 @@ async def test_select_query_spooled_segments(trino_connection: Connection):
             assert isinstance(row[13], str), f"Expected string for shipinstruct, got {type(row[13])}"
 
 
-@pytest.mark.skipif(
-    trino_version() <= 466,
-    reason="spooling protocol was introduced in version 466"
-)
+@pytest.mark.skipif(trino_version() <= 466, reason="spooling protocol was introduced in version 466")
 @pytest.mark.asyncio(loop_scope="session")
 async def test_segments_cursor(trino_connection: Connection):
     if trino_connection._client_session.encoding is None:
@@ -1966,7 +2021,9 @@ async def test_segments_cursor(trino_connection: Connection):
         for segment in segments:
             assert segment.encoding == trino_connection._client_session.encoding
             assert isinstance(segment.segment.uri, str), f"Expected string for uri, got {segment.segment.uri}"
-            assert isinstance(segment.segment.ack_uri, str), f"Expected string for ack_uri, got {segment.segment.ack_uri}"
+            assert isinstance(segment.segment.ack_uri, str), (
+                f"Expected string for ack_uri, got {segment.segment.ack_uri}"
+            )
             total += len([row async for row in SegmentIterator(segment, row_mapper)])
         assert total == 300875, f"Expected total rows 300875, got {total}"
 
@@ -1983,15 +2040,12 @@ async def assert_cursor_description(cur: Cursor, trino_type, size=None, precisio
 class _TestTable:
     def __init__(self, conn: Connection, table_name_prefix: str, table_definition) -> None:
         self._conn = conn
-        self._table_name = table_name_prefix + '_' + str(uuid.uuid4().hex)
+        self._table_name = table_name_prefix + "_" + str(uuid.uuid4().hex)
         self._table_definition = table_definition
 
     async def __aenter__(self) -> Tuple["_TestTable", Cursor]:
         cur = await self._conn.cursor()
-        return (
-            self,
-            await cur.execute(f"CREATE TABLE {self._table_name} {self._table_definition}")
-        )
+        return (self, await cur.execute(f"CREATE TABLE {self._table_name} {self._table_definition}"))
 
     async def __aexit__(self, exc_type, exc_value, exc_tb) -> None:
         cur = await self._conn.cursor()
