@@ -10,13 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum, unique
+from enum import Enum
+from enum import unique
 from typing import Iterable
 
 import aiotrino.client
 import aiotrino.exceptions
 import aiotrino.logging
 from aiotrino import constants
+
 
 logger = aiotrino.logging.get_logger(__name__)
 
@@ -86,7 +88,9 @@ class Transaction(object):
             # loop through to catch any exceptions
             [x async for x in await query.execute()]
         except Exception as err:
-            raise aiotrino.exceptions.DatabaseError("failed to commit transaction {}: {}".format(self._id, err)) from None
+            raise aiotrino.exceptions.DatabaseError(
+                "failed to commit transaction {}: {}".format(self._id, err)
+            ) from None
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
@@ -96,7 +100,9 @@ class Transaction(object):
             # loop through to catch any exceptions
             [x async for x in await query.execute()]
         except Exception as err:
-            raise aiotrino.exceptions.DatabaseError("failed to rollback transaction {}: {}".format(self._id, err)) from None
+            raise aiotrino.exceptions.DatabaseError(
+                "failed to rollback transaction {}: {}".format(self._id, err)
+            ) from None
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 

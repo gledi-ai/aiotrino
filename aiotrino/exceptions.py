@@ -15,9 +15,13 @@ This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
+from typing import Dict
+from typing import Optional
+from typing import Tuple
 
 import aiotrino.logging
+
 
 logger = aiotrino.logging.get_logger(__name__)
 

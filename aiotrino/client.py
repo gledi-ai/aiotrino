@@ -52,7 +52,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from enum import Enum
-from typing import Any, Iterator, Literal, Optional, TypedDict, Union, cast
+from typing import Any
+from typing import Iterator
+from typing import Literal
+from typing import Optional
+from typing import TypedDict
+from typing import Union
+from typing import cast
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -67,11 +73,16 @@ from multidict import CIMultiDict
 from tzlocal import get_localzone_name  # type: ignore
 
 import aiotrino.logging
-from aiotrino import constants, exceptions
+from aiotrino import constants
+from aiotrino import exceptions
 from aiotrino._version import __version__
 from aiotrino.auth import Authentication
-from aiotrino.exceptions import TrinoExternalError, TrinoQueryError, TrinoUserError
-from aiotrino.mapper import RowMapper, RowMapperFactory
+from aiotrino.exceptions import TrinoExternalError
+from aiotrino.exceptions import TrinoQueryError
+from aiotrino.exceptions import TrinoUserError
+from aiotrino.mapper import RowMapper
+from aiotrino.mapper import RowMapperFactory
+
 
 __all__ = [
     "ClientSession",
@@ -671,7 +682,9 @@ class TrinoRequest:
         self._delete = with_retry(self._http_session.delete)
 
     def get_url(self, path: str) -> str:
-        return "{protocol}://{host}:{port}{path}".format(protocol=self._http_scheme, host=self._host, port=self._port, path=path)
+        return "{protocol}://{host}:{port}{path}".format(
+            protocol=self._http_scheme, host=self._host, port=self._port, path=path
+        )
 
     @property
     def statement_url(self) -> str:

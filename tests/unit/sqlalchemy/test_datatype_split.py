@@ -15,6 +15,7 @@ import pytest
 
 from aiotrino.sqlalchemy import datatype
 
+
 split_string_testcases = {
     "10": ["10"],
     "10,3": ["10", "3"],

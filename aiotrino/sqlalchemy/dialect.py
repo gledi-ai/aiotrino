@@ -16,28 +16,47 @@ import datetime
 import json
 import time
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
+from collections.abc import Sequence
 from textwrap import dedent
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 from urllib.parse import unquote_plus
 
-from sqlalchemy import exc, pool, sql, util
-from sqlalchemy.engine import AdaptedConnection, Engine
+from sqlalchemy import exc
+from sqlalchemy import pool
+from sqlalchemy import sql
+from sqlalchemy import util
+from sqlalchemy.engine import AdaptedConnection
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect
 from sqlalchemy.engine.url import URL
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.util.concurrency import await_fallback, await_only
+from sqlalchemy.util.concurrency import await_fallback
+from sqlalchemy.util.concurrency import await_only
 
 from aiotrino import dbapi as aiotrino_dbapi
 from aiotrino import logging
-from aiotrino.auth import BasicAuthentication, JWTAuthentication
+from aiotrino.auth import BasicAuthentication
+from aiotrino.auth import JWTAuthentication
 from aiotrino.client import TrinoRequest
-from aiotrino.dbapi import ColumnDescription, Cursor, IsolationLevel, NotSupportedError
-from aiotrino.sqlalchemy import compiler, datatype, error
+from aiotrino.dbapi import ColumnDescription
+from aiotrino.dbapi import Cursor
+from aiotrino.dbapi import IsolationLevel
+from aiotrino.dbapi import NotSupportedError
+from aiotrino.sqlalchemy import compiler
+from aiotrino.sqlalchemy import datatype
+from aiotrino.sqlalchemy import error
 from aiotrino.utils import aiter
 
-from .datatype import JSONIndexType, JSONPathType
+from .datatype import JSONIndexType
+from .datatype import JSONPathType
+
 
 logger = logging.get_logger(__name__)
 
@@ -115,14 +134,10 @@ class AsyncAdapt_aiotrino_cursor(Cursor):
                 self._handle_exception(error)
 
     def execute(self, operation, parameters=None):
-        self.await_(
-            self._execute(operation, parameters)
-        )
+        self.await_(self._execute(operation, parameters))
 
     def executemany(self, operation, seq_of_parameters):
-        self.await_(
-            self._executemany(operation, seq_of_parameters)
-        )
+        self.await_(self._executemany(operation, seq_of_parameters))
 
     def __iter__(self):
         while self._rows:
@@ -184,7 +199,6 @@ class AsyncAdapt_aiotrino_ss_cursor(AsyncAdapt_aiotrino_cursor):
                 yield self.await_(iterator.__anext__())
             except StopAsyncIteration:
                 break
-
 
 
 class AsyncAdapt_aiotrino_connection(AdaptedConnection):
@@ -437,7 +451,6 @@ class AsyncAdapt_aiotrino_dbapi:
 
 
 class AIOTrinoDialect(DefaultDialect):
-
     await_ = staticmethod(await_only)
 
     def __init__(self, json_serializer=None, json_deserializer=None, **kwargs):
@@ -534,7 +547,9 @@ class AIOTrinoDialect(DefaultDialect):
             kwargs["auth"] = JWTAuthentication(unquote_plus(url.query["access_token"]))
 
         # if "cert" in url.query and "key" in url.query:
-        #     kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
+        #     kwargs["auth"] = CertificateAuthentication(
+        #         unquote_plus(url.query['cert']), unquote_plus(url.query['key'])
+        #     )
 
         # if "externalAuthentication" in url.query:
         #     kwargs["auth"] = OAuth2Authentication()
@@ -604,7 +619,9 @@ class AIOTrinoDialect(DefaultDialect):
             columns.append(column)
         return columns
 
-    def _get_partitions(self, connection: Connection, table_name: str, schema: str = None) -> List[Dict[str, List[Any]]]:
+    def _get_partitions(
+        self, connection: Connection, table_name: str, schema: str = None
+    ) -> List[Dict[str, List[Any]]]:
         schema = schema or self._get_default_schema_name(connection)
         query = dedent(
             f"""
@@ -623,7 +640,9 @@ class AIOTrinoDialect(DefaultDialect):
         pk = self.get_pk_constraint(connection, table_name, schema)
         return pk.get("constrained_columns")  # type: ignore
 
-    def get_foreign_keys(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def get_foreign_keys(
+        self, connection: Connection, table_name: str, schema: str = None, **kw
+    ) -> List[Dict[str, Any]]:
         """Trino has no support for foreign keys. Returns an empty list."""
         return []
 
@@ -721,11 +740,15 @@ class AIOTrinoDialect(DefaultDialect):
         """Trino has no support for sequences. Returns an empty list."""
         return []
 
-    def get_unique_constraints(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def get_unique_constraints(
+        self, connection: Connection, table_name: str, schema: str = None, **kw
+    ) -> List[Dict[str, Any]]:
         """Trino has no support for unique constraints. Returns an empty list."""
         return []
 
-    def get_check_constraints(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def get_check_constraints(
+        self, connection: Connection, table_name: str, schema: str = None, **kw
+    ) -> List[Dict[str, Any]]:
         """Trino has no support for check constraints. Returns an empty list."""
         return []
 

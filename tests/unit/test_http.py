@@ -10,12 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from aiotrino import constants
-from aiotrino.client import (
-    get_header_values,
-    get_prepared_statement_values,
-    get_roles_values,
-    get_session_property_values,
-)
+from aiotrino.client import get_header_values
+from aiotrino.client import get_prepared_statement_values
+from aiotrino.client import get_roles_values
+from aiotrino.client import get_session_property_values
 
 
 def test_get_header_values():

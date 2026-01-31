@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 import abc
-from datetime import datetime, time, timedelta
+from datetime import datetime
+from datetime import time
+from datetime import timedelta
 from decimal import Decimal
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union, cast
+from typing import Any
+from typing import Dict
+from typing import Generic
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import TypeVar
+from typing import Union
+from typing import cast
+
 
 PythonTemporalType = TypeVar("PythonTemporalType", bound=Union[time, datetime])
 POWERS_OF_TEN: Dict[int, Decimal] = {i: Decimal(10**i) for i in range(0, 13)}
@@ -100,7 +111,7 @@ class NamedRowTuple(Tuple[Any, ...]):
         self.__annotations__["names"] = names
         self.__annotations__["types"] = types
         elements: List[Any] = []
-        for name, value in zip(names, values):
+        for name, value in zip(names, values, strict=False):
             if name is not None and names.count(name) == 1:
                 setattr(self, name, value)
                 elements.append(f"{name}: {repr(value)}")

@@ -15,19 +15,20 @@ import pytest
 from aiohttp import ClientSession
 
 from aiotrino import constants
-from aiotrino.dbapi import Connection, connect
+from aiotrino.dbapi import Connection
+from aiotrino.dbapi import connect
 
 
-class aiter_mock():
+class aiter_mock:
     def __aiter__(self):
         async def gen():
             yield None
 
         return gen()
 
+
 async def mock_execute():
     return aiter_mock()
-
 
 
 @pytest.mark.asyncio
@@ -45,7 +46,7 @@ async def test_http_session_is_correctly_passed_in(mock_client):
 
     # THEN
     _, request_kwargs = mock_client.TrinoRequest.call_args
-    assert test_session == request_kwargs['http_session']
+    assert test_session == request_kwargs["http_session"]
 
 
 @pytest.mark.asyncio
@@ -59,7 +60,7 @@ async def test_http_session_is_defaulted_when_not_specified(mock_client):
 
     # THEN
     _, request_kwargs = mock_client.TrinoRequest.call_args
-    assert mock_client.TrinoRequest.http.ClientSession.return_value == request_kwargs['http_session']
+    assert mock_client.TrinoRequest.http.ClientSession.return_value == request_kwargs["http_session"]
 
 
 @pytest.mark.asyncio

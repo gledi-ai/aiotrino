@@ -12,7 +12,8 @@
 import asyncio
 import time
 import urllib
-from typing import Dict, Optional
+from typing import Dict
+from typing import Optional
 from unittest import mock
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfoNotFoundError
@@ -20,27 +21,27 @@ from zoneinfo import ZoneInfoNotFoundError
 import aiohttp
 import aiohttp.client_exceptions
 import pytest
-from mocket.plugins.httpretty import async_httprettified, httpretty
+from mocket.plugins.httpretty import async_httprettified
+from mocket.plugins.httpretty import httpretty
 from tzlocal import get_localzone_name  # type: ignore
 from yarl import URL
 
 import aiotrino
-from aiotrino import __version__, constants
-from aiotrino.client import (
-    ClientSession,
-    TrinoQuery,
-    TrinoRequest,
-    TrinoResult,
-    _DelayExponential,
-    _retry_with,
-    _RetryWithExponentialBackoff,
-)
+from aiotrino import __version__
+from aiotrino import constants
+from aiotrino.client import ClientSession
+from aiotrino.client import TrinoQuery
+from aiotrino.client import TrinoRequest
+from aiotrino.client import TrinoResult
+from aiotrino.client import _DelayExponential
+from aiotrino.client import _retry_with
+from aiotrino.client import _RetryWithExponentialBackoff
 
 
 def create_response() -> aiohttp.ClientResponse:
     client_response = TrinoRequest.http.ClientResponse(
-        'POST',
-        URL('aiotrino://user@localhost:8080/?source=aiotrino-sqlalchemy'),
+        "POST",
+        URL("aiotrino://user@localhost:8080/?source=aiotrino-sqlalchemy"),
         writer=None,
         continue100=None,
         timer=None,
@@ -49,6 +50,7 @@ def create_response() -> aiohttp.ClientResponse:
         loop=asyncio.get_running_loop(),
         session=None,
     )
+
     class MockReader:
         async def read(self):
             return None
@@ -126,7 +128,7 @@ async def test_request_headers(mock_get_and_post):
                     "catalog1": "NONE",
                     # ensure backwards compatibility
                     "catalog2": "ROLE{catalog2_role}",
-                }
+                },
             ),
             http_scheme="http",
         )
@@ -169,14 +171,7 @@ async def test_request_session_properties_headers(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            properties={
-                "a": "1",
-                "b": "2",
-                "c": "more=v1,v2"
-            }
-        )
+        client_session=ClientSession(user="test_user", properties={"a": "1", "b": "2", "c": "more=v1,v2"}),
     )
 
     def assert_headers(headers):
@@ -212,10 +207,10 @@ async def test_additional_request_post_headers(mock_get_and_post):
         http_scheme="http",
     )
 
-    sql = 'select 1'
+    sql = "select 1"
     additional_headers = {
-        'X-Trino-Fake-1': 'one',
-        'X-Trino-Fake-2': 'two',
+        "X-Trino-Fake-1": "one",
+        "X-Trino-Fake-2": "two",
     }
 
     combined_headers = req.http_headers
@@ -225,7 +220,7 @@ async def test_additional_request_post_headers(mock_get_and_post):
 
     # Validate that the post call was performed including the addtional headers
     _, post_kwargs = post.call_args
-    assert post_kwargs['headers'] == combined_headers
+    assert post_kwargs["headers"] == combined_headers
 
 
 async def test_request_invalid_http_headers():
@@ -248,10 +243,7 @@ async def test_request_client_tags_headers(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            client_tags=["tag1", "tag2"]
-        ),
+        client_session=ClientSession(user="test_user", client_tags=["tag1", "tag2"]),
     )
 
     def assert_headers(headers):
@@ -275,7 +267,7 @@ async def test_request_client_tags_headers_no_client_tags(mock_get_and_post):
         port=8080,
         client_session=ClientSession(
             user="test_user",
-        )
+        ),
     )
 
     def assert_headers(headers):
@@ -360,7 +352,6 @@ async def test_request_timeout():
     port = 8080
     url = http_scheme + "://" + host + ":" + str(port) + constants.URL_STATEMENT_PATH
 
-
     class LongCallResponse(bytes):
         @property
         def data(self):
@@ -382,20 +373,24 @@ async def test_request_timeout():
         request_timeout=timeout,
     )
 
-    with pytest.raises((
-        asyncio.TimeoutError,
-        aiohttp.client_exceptions.ServerTimeoutError,
-        aiohttp.client_exceptions.SocketTimeoutError,
-        aiohttp.client_exceptions.ConnectionTimeoutError,
-    )):
+    with pytest.raises(
+        (
+            asyncio.TimeoutError,
+            aiohttp.client_exceptions.ServerTimeoutError,
+            aiohttp.client_exceptions.SocketTimeoutError,
+            aiohttp.client_exceptions.ConnectionTimeoutError,
+        )
+    ):
         await req.get(url)
 
-    with pytest.raises((
-        asyncio.TimeoutError,
-        aiohttp.client_exceptions.ServerTimeoutError,
-        aiohttp.client_exceptions.SocketTimeoutError,
-        aiohttp.client_exceptions.ConnectionTimeoutError,
-    )):
+    with pytest.raises(
+        (
+            asyncio.TimeoutError,
+            aiohttp.client_exceptions.ServerTimeoutError,
+            aiohttp.client_exceptions.SocketTimeoutError,
+            aiohttp.client_exceptions.ConnectionTimeoutError,
+        )
+    ):
         await req.post("select 1")
 
 
@@ -425,6 +420,7 @@ async def test_trino_fetch_request(mock_requests, sample_get_response_data):
     assert status.id == sample_get_response_data["id"]
     assert status.rows == sample_get_response_data["data"]
 
+
 @pytest.mark.asyncio
 @mock.patch("aiotrino.client.TrinoRequest.http")
 async def test_trino_fetch_request_data_none(mock_requests, sample_get_response_data_none):
@@ -450,6 +446,7 @@ async def test_trino_fetch_request_data_none(mock_requests, sample_get_response_
     assert status.next_uri == sample_get_response_data_none["nextUri"]
     assert status.id == sample_get_response_data_none["id"]
     assert status.rows == []
+
 
 @pytest.mark.asyncio
 @mock.patch("aiotrino.client.TrinoRequest.http")
@@ -481,12 +478,10 @@ async def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
     assert "stack" in error.failure_info
     assert len(error.failure_info["stack"]) == 36
     assert "suppressed" in error.failure_info
-    assert (
-        error.message
-        == "line 1:15: Schema must be specified when session schema is not set"
-    )
+    assert error.message == "line 1:15: Schema must be specified when session schema is not set"
     assert error.error_location == (1, 15)
     assert error.query_id == "20210817_140827_00000_arvdv"
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -605,10 +600,7 @@ async def test_extra_credential_value_object(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        client_session=ClientSession(
-            user="test",
-            extra_credential=[("foo", credential)]
-        )
+        client_session=ClientSession(user="test", extra_credential=[("foo", credential)]),
     )
 
     await req.post("SELECT 1")
@@ -644,12 +636,16 @@ class RetryRecorder:
     def retry_count(self):
         return self._retry_count
 
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status_code, attempts", [
-    (502, 3),
-    (503, 3),
-    (504, 3),
-])
+@pytest.mark.parametrize(
+    "status_code, attempts",
+    [
+        (502, 3),
+        (503, 3),
+        (504, 3),
+    ],
+)
 async def test_5XX_error_retry(status_code, attempts, monkeypatch):
     http_resp = create_response()
     http_resp.status = status_code
@@ -666,7 +662,7 @@ async def test_5XX_error_retry(status_code, attempts, monkeypatch):
         client_session=ClientSession(
             user="test",
         ),
-        max_attempts=attempts
+        max_attempts=attempts,
     )
 
     await req.post("URL")
@@ -694,7 +690,7 @@ async def test_429_error_retry(monkeypatch):
         client_session=ClientSession(
             user="test",
         ),
-        max_attempts=3
+        max_attempts=3,
     )
 
     await req.post("URL")
@@ -705,9 +701,7 @@ async def test_429_error_retry(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status_code", [
-    501
-])
+@pytest.mark.parametrize("status_code", [501])
 async def test_error_no_retry(status_code, monkeypatch):
     http_resp = create_response()
     http_resp.status = status_code
@@ -765,8 +759,8 @@ async def test_trino_query_response_headers(sample_get_response_data):
         @property
         def headers(self):
             return {
-                'X-Trino-Fake-1': 'one',
-                'X-Trino-Fake-2': 'two',
+                "X-Trino-Fake-1": "one",
+                "X-Trino-Fake-2": "two",
             }
 
         async def json(self, *args, **kwargs):
@@ -785,19 +779,16 @@ async def test_trino_query_response_headers(sample_get_response_data):
         http_scheme="http",
     )
 
-    sql = 'execute my_stament using 1, 2, 3'
+    sql = "execute my_stament using 1, 2, 3"
     additional_headers = {
-        constants.HEADER_PREPARED_STATEMENT: 'my_statement=added_prepare_statement_header',
-        constants.HEADER_CLIENT_CAPABILITIES: 'PARAMETRIC_DATETIME'
+        constants.HEADER_PREPARED_STATEMENT: "my_statement=added_prepare_statement_header",
+        constants.HEADER_CLIENT_CAPABILITIES: "PARAMETRIC_DATETIME",
     }
 
     # Patch the post function to avoid making the requests, as well as to
     # validate that the function was called with the right arguments.
-    with mock.patch.object(req, 'post', return_value=MockResponse()) as mock_post:
-        query = TrinoQuery(
-            request=req,
-            query=sql
-        )
+    with mock.patch.object(req, "post", return_value=MockResponse()) as mock_post:
+        query = TrinoQuery(request=req, query=sql)
         result = await query.execute(additional_http_headers=additional_headers)
 
         # Validate the the post function was called with the right argguments
@@ -875,10 +866,7 @@ async def test_request_headers_role_hive_all(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            roles={"hive": "ALL"}
-        ),
+        client_session=ClientSession(user="test_user", roles={"hive": "ALL"}),
     )
 
     await req.post("URL")
@@ -897,10 +885,7 @@ async def test_request_headers_role_admin(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            roles={"system": "admin"}
-        ),
+        client_session=ClientSession(user="test_user", roles={"system": "admin"}),
     )
     roles = "system=" + urllib.parse.quote("ROLE{admin}")
 
@@ -946,10 +931,7 @@ async def test_request_headers_with_timezone(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            timezone="Europe/Brussels"
-        ),
+        client_session=ClientSession(user="test_user", timezone="Europe/Brussels"),
     )
 
     await req.post("URL")
@@ -988,9 +970,6 @@ def test_request_with_invalid_timezone(mock_get_and_post):
         TrinoRequest(
             host="coordinator",
             port=8080,
-            client_session=ClientSession(
-                user="test_user",
-                timezone="INVALID_TIMEZONE"
-            ),
+            client_session=ClientSession(user="test_user", timezone="INVALID_TIMEZONE"),
         )
     assert str(zinfo_error.value).startswith("'No time zone found with key")

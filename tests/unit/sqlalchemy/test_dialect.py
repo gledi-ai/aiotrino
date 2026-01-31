@@ -1,8 +1,11 @@
-from typing import Any, Dict, List
+from typing import Any
+from typing import Dict
+from typing import List
 from unittest import mock
 
 import pytest
-from sqlalchemy.engine.url import URL, make_url
+from sqlalchemy.engine.url import URL
+from sqlalchemy.engine.url import make_url
 
 from aiotrino.auth import BasicAuthentication
 from aiotrino.dbapi import Connection
@@ -19,41 +22,59 @@ class TestTrinoDialect:
         "url, generated_url, expected_args, expected_kwargs",
         [
             (
-                make_url(trino_url(
-                    user="user",
-                    host="localhost",
-                )),
-                'aiotrino://user@localhost:8080/?source=aiotrino-sqlalchemy',
-                list(),
-                dict(host="localhost", catalog="system", user="user", port=8080, source="aiotrino-sqlalchemy"),
-            ),
-            (
-                make_url(trino_url(
-                    user="user",
-                    host="localhost",
-                    port=443,
-                )),
-                'aiotrino://user@localhost:443/?source=aiotrino-sqlalchemy',
-                list(),
-                dict(host="localhost", port=443, catalog="system", user="user", source="aiotrino-sqlalchemy"),
-            ),
-            (
-                make_url(trino_url(
-                    user="user",
-                    password="pass",
-                    host="localhost",
-                    source="aiotrino-rulez",
-                )),
-                'aiotrino://user:***@localhost:8080/?source=aiotrino-rulez',
-                list(),
-                dict(
-                    host="localhost",
-                    port=8080,
-                    catalog="system",
-                    user="user",
-                    auth=BasicAuthentication("user", "pass"),
-                    source="aiotrino-rulez"
+                make_url(
+                    trino_url(
+                        user="user",
+                        host="localhost",
+                    )
                 ),
+                "aiotrino://user@localhost:8080/?source=aiotrino-sqlalchemy",
+                [],
+                {
+                    "host": "localhost",
+                    "catalog": "system",
+                    "user": "user",
+                    "port": 8080,
+                    "source": "aiotrino-sqlalchemy",
+                },
+            ),
+            (
+                make_url(
+                    trino_url(
+                        user="user",
+                        host="localhost",
+                        port=443,
+                    )
+                ),
+                "aiotrino://user@localhost:443/?source=aiotrino-sqlalchemy",
+                [],
+                {
+                    "host": "localhost",
+                    "port": 443,
+                    "catalog": "system",
+                    "user": "user",
+                    "source": "aiotrino-sqlalchemy",
+                },
+            ),
+            (
+                make_url(
+                    trino_url(
+                        user="user",
+                        password="pass",
+                        host="localhost",
+                        source="aiotrino-rulez",
+                    )
+                ),
+                "aiotrino://user:***@localhost:8080/?source=aiotrino-rulez",
+                [],
+                {
+                    "host": "localhost",
+                    "port": 8080,
+                    "catalog": "system",
+                    "user": "user",
+                    "auth": BasicAuthentication("user", "pass"),
+                    "source": "aiotrino-rulez",
+                },
             ),
             # (
             #     make_url(trino_url(
@@ -96,131 +117,137 @@ class TestTrinoDialect:
             #     ),
             # ),
             (
-                make_url(trino_url(
-                    user="user",
-                    host="localhost",
-                    session_properties={"query_max_run_time": "1d"},
-                    http_headers={"trino": 1},
-                    extra_credential=[("a", "b"), ("c", "d")],
-                    client_tags=["1", "sql"],
-                    legacy_primitive_types=False,
-                )),
-                'aiotrino://user@localhost:8080/'
-                '?client_tags=%5B%221%22%2C+%22sql%22%5D'
-                '&extra_credential=%5B%5B%22a%22%2C+%22b%22%5D%2C+%5B%22c%22%2C+%22d%22%5D%5D'
-                '&http_headers=%7B%22trino%22%3A+1%7D'
-                '&legacy_primitive_types=false'
-                '&session_properties=%7B%22query_max_run_time%22%3A+%221d%22%7D'
-                '&source=aiotrino-sqlalchemy',
-                list(),
-                dict(
-                    host="localhost",
-                    port=8080,
-                    catalog="system",
-                    user="user",
-                    source="aiotrino-sqlalchemy",
-                    session_properties={"query_max_run_time": "1d"},
-                    http_headers={"trino": 1},
-                    extra_credential=[("a", "b"), ("c", "d")],
-                    client_tags=["1", "sql"],
-                    legacy_primitive_types=False,
+                make_url(
+                    trino_url(
+                        user="user",
+                        host="localhost",
+                        session_properties={"query_max_run_time": "1d"},
+                        http_headers={"trino": 1},
+                        extra_credential=[("a", "b"), ("c", "d")],
+                        client_tags=["1", "sql"],
+                        legacy_primitive_types=False,
+                    )
                 ),
+                "aiotrino://user@localhost:8080/"
+                "?client_tags=%5B%221%22%2C+%22sql%22%5D"
+                "&extra_credential=%5B%5B%22a%22%2C+%22b%22%5D%2C+%5B%22c%22%2C+%22d%22%5D%5D"
+                "&http_headers=%7B%22trino%22%3A+1%7D"
+                "&legacy_primitive_types=false"
+                "&session_properties=%7B%22query_max_run_time%22%3A+%221d%22%7D"
+                "&source=aiotrino-sqlalchemy",
+                [],
+                {
+                    "host": "localhost",
+                    "port": 8080,
+                    "catalog": "system",
+                    "user": "user",
+                    "source": "aiotrino-sqlalchemy",
+                    "session_properties": {"query_max_run_time": "1d"},
+                    "http_headers": {"trino": 1},
+                    "extra_credential": [("a", "b"), ("c", "d")],
+                    "client_tags": ["1", "sql"],
+                    "legacy_primitive_types": False,
+                },
             ),
             # url encoding
             (
-                make_url(trino_url(
-                    user="user@test.org/my_role",
-                    password="pass /*&",
-                    host="localhost",
-                    session_properties={"query_max_run_time": "1d"},
-                    http_headers={"trino": 1},
-                    extra_credential=[
-                        ("user1@test.org/my_role", "user2@test.org/my_role"),
-                        ("user3@test.org/my_role", "user36@test.org/my_role")],
-                    legacy_primitive_types=False,
-                    client_tags=["1 @& /\"", "sql"],
-                    verify=False,
-                )),
-                'aiotrino://user%40test.org%2Fmy_role:***@localhost:8080/'
-                '?client_tags=%5B%221+%40%26+%2F%5C%22%22%2C+%22sql%22%5D'
-                '&extra_credential=%5B%5B%22user1%40test.org%2Fmy_role%22%2C+'
-                '%22user2%40test.org%2Fmy_role%22%5D%2C+'
-                '%5B%22user3%40test.org%2Fmy_role%22%2C+'
-                '%22user36%40test.org%2Fmy_role%22%5D%5D'
-                '&http_headers=%7B%22trino%22%3A+1%7D'
-                '&legacy_primitive_types=false'
-                '&session_properties=%7B%22query_max_run_time%22%3A+%221d%22%7D'
-                '&source=aiotrino-sqlalchemy'
-                '&verify=false',
-                list(),
-                dict(
-                    host="localhost",
-                    port=8080,
-                    catalog="system",
-                    user="user@test.org/my_role",
-                    auth=BasicAuthentication("user@test.org/my_role", "pass /*&"),
-                    source="aiotrino-sqlalchemy",
-                    session_properties={"query_max_run_time": "1d"},
-                    http_headers={"trino": 1},
-                    extra_credential=[
-                        ("user1@test.org/my_role", "user2@test.org/my_role"),
-                        ("user3@test.org/my_role", "user36@test.org/my_role")],
-                    legacy_primitive_types=False,
-                    client_tags=["1 @& /\"", "sql"],
-                    verify=False,
+                make_url(
+                    trino_url(
+                        user="user@test.org/my_role",
+                        password="pass /*&",
+                        host="localhost",
+                        session_properties={"query_max_run_time": "1d"},
+                        http_headers={"trino": 1},
+                        extra_credential=[
+                            ("user1@test.org/my_role", "user2@test.org/my_role"),
+                            ("user3@test.org/my_role", "user36@test.org/my_role"),
+                        ],
+                        legacy_primitive_types=False,
+                        client_tags=['1 @& /"', "sql"],
+                        verify=False,
+                    )
                 ),
+                "aiotrino://user%40test.org%2Fmy_role:***@localhost:8080/"
+                "?client_tags=%5B%221+%40%26+%2F%5C%22%22%2C+%22sql%22%5D"
+                "&extra_credential=%5B%5B%22user1%40test.org%2Fmy_role%22%2C+"
+                "%22user2%40test.org%2Fmy_role%22%5D%2C+"
+                "%5B%22user3%40test.org%2Fmy_role%22%2C+"
+                "%22user36%40test.org%2Fmy_role%22%5D%5D"
+                "&http_headers=%7B%22trino%22%3A+1%7D"
+                "&legacy_primitive_types=false"
+                "&session_properties=%7B%22query_max_run_time%22%3A+%221d%22%7D"
+                "&source=aiotrino-sqlalchemy"
+                "&verify=false",
+                [],
+                {
+                    "host": "localhost",
+                    "port": 8080,
+                    "catalog": "system",
+                    "user": "user@test.org/my_role",
+                    "auth": BasicAuthentication("user@test.org/my_role", "pass /*&"),
+                    "source": "aiotrino-sqlalchemy",
+                    "session_properties": {"query_max_run_time": "1d"},
+                    "http_headers": {"trino": 1},
+                    "extra_credential": [
+                        ("user1@test.org/my_role", "user2@test.org/my_role"),
+                        ("user3@test.org/my_role", "user36@test.org/my_role"),
+                    ],
+                    "legacy_primitive_types": False,
+                    "client_tags": ['1 @& /"', "sql"],
+                    "verify": False,
+                },
             ),
             (
-                make_url(trino_url(
-                    user="user",
-                    host="localhost",
-                    roles={
-                        "hive": "finance",
-                        "system": "analyst",
-                    }
-                )),
-                'aiotrino://user@localhost:8080/'
-                '?roles=%7B%22hive%22%3A+%22finance%22%2C+%22system%22%3A+%22analyst%22%7D&source=aiotrino-sqlalchemy',
-                list(),
-                dict(
-                    host="localhost",
-                    port=8080,
-                    catalog="system",
-                    user="user",
-                    roles={"hive": "finance", "system": "analyst"},
-                    source="aiotrino-sqlalchemy",
+                make_url(
+                    trino_url(
+                        user="user",
+                        host="localhost",
+                        roles={
+                            "hive": "finance",
+                            "system": "analyst",
+                        },
+                    )
                 ),
+                "aiotrino://user@localhost:8080/"
+                "?roles=%7B%22hive%22%3A+%22finance%22%2C+%22system%22%3A+%22analyst%22%7D&source=aiotrino-sqlalchemy",
+                [],
+                {
+                    "host": "localhost",
+                    "port": 8080,
+                    "catalog": "system",
+                    "user": "user",
+                    "roles": {"hive": "finance", "system": "analyst"},
+                    "source": "aiotrino-sqlalchemy",
+                },
             ),
             (
-                make_url(trino_url(
-                    user="user",
-                    host="localhost",
-                    client_tags=["1", "sql"],
-                    legacy_prepared_statements=False,
-                )),
-                'aiotrino://user@localhost:8080/'
-                '?client_tags=%5B%221%22%2C+%22sql%22%5D'
-                '&legacy_prepared_statements=false'
-                '&source=aiotrino-sqlalchemy',
-                list(),
-                dict(
-                    host="localhost",
-                    port=8080,
-                    catalog="system",
-                    user="user",
-                    source="aiotrino-sqlalchemy",
-                    client_tags=["1", "sql"],
-                    legacy_prepared_statements=False,
+                make_url(
+                    trino_url(
+                        user="user",
+                        host="localhost",
+                        client_tags=["1", "sql"],
+                        legacy_prepared_statements=False,
+                    )
                 ),
+                "aiotrino://user@localhost:8080/"
+                "?client_tags=%5B%221%22%2C+%22sql%22%5D"
+                "&legacy_prepared_statements=false"
+                "&source=aiotrino-sqlalchemy",
+                [],
+                {
+                    "host": "localhost",
+                    "port": 8080,
+                    "catalog": "system",
+                    "user": "user",
+                    "source": "aiotrino-sqlalchemy",
+                    "client_tags": ["1", "sql"],
+                    "legacy_prepared_statements": False,
+                },
             ),
         ],
     )
     def test_create_connect_args(
-        self,
-        url: URL,
-        generated_url: str,
-        expected_args: List[Any],
-        expected_kwargs: Dict[str, Any]
+        self, url: URL, generated_url: str, expected_args: List[Any], expected_kwargs: Dict[str, Any]
     ):
         assert repr(url) == generated_url
 
@@ -255,14 +282,14 @@ class TestTrinoDialect:
 
 def test_trino_connection_basic_auth():
     dialect = AIOTrinoDialect()
-    username = 'trino-user'
-    password = 'trino-bunny'
-    url = make_url(f'aiotrino://{username}:{password}@host')
+    username = "trino-user"
+    password = "trino-bunny"
+    url = make_url(f"aiotrino://{username}:{password}@host")
     _, cparams = dialect.create_connect_args(url)
 
-    assert isinstance(cparams['auth'], BasicAuthentication)
-    assert cparams['auth']._username == username
-    assert cparams['auth']._password == password
+    assert isinstance(cparams["auth"], BasicAuthentication)
+    assert cparams["auth"]._username == username
+    assert cparams["auth"]._password == password
 
 
 # def test_trino_connection_jwt_auth():

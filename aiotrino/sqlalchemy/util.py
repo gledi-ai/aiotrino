@@ -1,6 +1,10 @@
 import json
 import re
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 from urllib.parse import quote_plus
 
 from sqlalchemy import exc
@@ -28,7 +32,7 @@ def _url(
     cert: Optional[str] = None,
     key: Optional[str] = None,
     verify: Optional[bool] = None,
-    roles: Optional[Dict[str, str]] = None
+    roles: Optional[Dict[str, str]] = None,
 ) -> str:
     """
     Composes a SQLAlchemy connection string from the given database connection
