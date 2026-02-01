@@ -13,20 +13,12 @@
 # limitations under the License.
 import re
 from collections.abc import Iterator
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Type
-from typing import Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import sqlalchemy
-from sqlalchemy import func
-from sqlalchemy import util
+from sqlalchemy import func, util
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.type_api import TypeDecorator
-from sqlalchemy.sql.type_api import TypeEngine
+from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 from sqlalchemy.types import JSON
 
 

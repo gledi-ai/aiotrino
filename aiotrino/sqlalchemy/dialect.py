@@ -16,46 +16,28 @@ import datetime
 import json
 import time
 from collections import deque
-from collections.abc import Mapping
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from textwrap import dedent
-from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import unquote_plus
 
-from sqlalchemy import exc
-from sqlalchemy import pool
-from sqlalchemy import sql
-from sqlalchemy import util
-from sqlalchemy.engine import AdaptedConnection
-from sqlalchemy.engine import Engine
+from sqlalchemy import exc, pool, sql, util
+from sqlalchemy.engine import AdaptedConnection, Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect
 from sqlalchemy.engine.url import URL
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.util.concurrency import await_fallback
-from sqlalchemy.util.concurrency import await_only
+from sqlalchemy.util.concurrency import await_fallback, await_only
 
 from aiotrino import dbapi as aiotrino_dbapi
 from aiotrino import logging
-from aiotrino.auth import BasicAuthentication
-from aiotrino.auth import JWTAuthentication
+from aiotrino.auth import BasicAuthentication, JWTAuthentication
 from aiotrino.client import TrinoRequest
-from aiotrino.dbapi import ColumnDescription
-from aiotrino.dbapi import Cursor
-from aiotrino.dbapi import IsolationLevel
-from aiotrino.dbapi import NotSupportedError
-from aiotrino.sqlalchemy import compiler
-from aiotrino.sqlalchemy import datatype
-from aiotrino.sqlalchemy import error
+from aiotrino.dbapi import ColumnDescription, Cursor, IsolationLevel, NotSupportedError
+from aiotrino.sqlalchemy import compiler, datatype, error
 from aiotrino.utils import aiter
 
-from .datatype import JSONIndexType
-from .datatype import JSONPathType
+from .datatype import JSONIndexType, JSONPathType
 
 
 logger = logging.get_logger(__name__)

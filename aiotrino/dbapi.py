@@ -27,10 +27,7 @@ from collections import OrderedDict
 from decimal import Decimal
 from threading import Lock
 from time import time
-from typing import Any
-from typing import NamedTuple
-from typing import Optional
-from typing import Union
+from typing import Any, NamedTuple, Optional, Union
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
@@ -41,21 +38,20 @@ import aiotrino.client
 import aiotrino.exceptions
 import aiotrino.logging
 from aiotrino import constants
-from aiotrino.exceptions import DatabaseError
-from aiotrino.exceptions import DataError
-from aiotrino.exceptions import Error
-from aiotrino.exceptions import IntegrityError
-from aiotrino.exceptions import InterfaceError
-from aiotrino.exceptions import InternalError
-from aiotrino.exceptions import NotSupportedError
-from aiotrino.exceptions import OperationalError
-from aiotrino.exceptions import ProgrammingError
-from aiotrino.exceptions import Warning
-from aiotrino.transaction import NO_TRANSACTION
-from aiotrino.transaction import IsolationLevel
-from aiotrino.transaction import Transaction
-from aiotrino.utils import aiter
-from aiotrino.utils import anext
+from aiotrino.exceptions import (
+    DatabaseError,
+    DataError,
+    Error,
+    IntegrityError,
+    InterfaceError,
+    InternalError,
+    NotSupportedError,
+    OperationalError,
+    ProgrammingError,
+    Warning,
+)
+from aiotrino.transaction import NO_TRANSACTION, IsolationLevel, Transaction
+from aiotrino.utils import aiter, anext
 
 
 __all__ = [

@@ -10,8 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
-from enum import unique
+from enum import Enum, unique
 from typing import Iterable
 
 import aiotrino.client

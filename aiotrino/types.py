@@ -1,19 +1,9 @@
 from __future__ import annotations
 
 import abc
-from datetime import datetime
-from datetime import time
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
-from typing import Any
-from typing import Dict
-from typing import Generic
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import TypeVar
-from typing import Union
-from typing import cast
+from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union, cast
 
 
 PythonTemporalType = TypeVar("PythonTemporalType", bound=Union[time, datetime])

@@ -52,13 +52,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from enum import Enum
-from typing import Any
-from typing import Iterator
-from typing import Literal
-from typing import Optional
-from typing import TypedDict
-from typing import Union
-from typing import cast
+from typing import Any, Iterator, Literal, Optional, TypedDict, Union, cast
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -73,15 +67,11 @@ from multidict import CIMultiDict
 from tzlocal import get_localzone_name  # type: ignore
 
 import aiotrino.logging
-from aiotrino import constants
-from aiotrino import exceptions
+from aiotrino import constants, exceptions
 from aiotrino._version import __version__
 from aiotrino.auth import Authentication
-from aiotrino.exceptions import TrinoExternalError
-from aiotrino.exceptions import TrinoQueryError
-from aiotrino.exceptions import TrinoUserError
-from aiotrino.mapper import RowMapper
-from aiotrino.mapper import RowMapperFactory
+from aiotrino.exceptions import TrinoExternalError, TrinoQueryError, TrinoUserError
+from aiotrino.mapper import RowMapper, RowMapperFactory
 
 
 __all__ = [
