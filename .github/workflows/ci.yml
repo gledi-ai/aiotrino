@@ -17,6 +17,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install libkrb5-dev
+          pip install nox nox-uv
 
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@v7
@@ -28,5 +29,11 @@ jobs:
             pyproject.toml
             uv.lock
 
-      - name: Testing with python ${{ matrix.python-version }}
-        run: uv run --frozen pytest
+      - name: Run linter
+        run: nox --session=lint --non-interactive
+
+      - name: Run formatter check
+        run: nox --session=format --non-interactive
+
+      - name: Run tests for each supported Python version
+        run: nox --session=test --non-interactive --python ${{ matrix.python-version }}

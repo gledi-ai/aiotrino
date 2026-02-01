@@ -1,36 +1,24 @@
-import nox
+from nox import Session, options  # pyright: ignore[reportMissingImports]
+from nox_uv import session  # pyright: ignore[reportMissingImports]
 
 
-nox.options.default_venv_backend = "uv"
-
-PYTHON_VERSIONS = ["3.12", "3.13", "3.14"]
+options.default_venv_backend = "uv"
 
 
-@nox.session(python=PYTHON_VERSIONS)
-def tests(session: nox.Session) -> None:
-    """Run the test suite."""
-    session.install(".[all]", "pytest", "pytest-asyncio", "pytest-aiohttp")
-    session.install(
-        "aioresponses",
-        "boto3",
-        "httpretty<1.1",
-        "mocket[speedups]",
-        "mock",
-        "pytz",
-        "testcontainers",
-    )
-    session.run("pytest", "-sv", "tests/", *session.posargs)
+@session(
+    python=["3.12", "3.13", "3.14"],
+    uv_extras=["all"],
+    uv_groups=["dev"],
+)
+def test(s: Session) -> None:
+    s.run("python", "-m", "pytest")
 
 
-@nox.session
-def lint(session: nox.Session) -> None:
-    """Run linting checks."""
-    session.install("ruff")
-    session.run("ruff", "check", ".")
+@session(uv_groups=["dev"])
+def lint(s: Session) -> None:
+    s.run("ruff", "check", "aiotrino")
 
 
-@nox.session
-def format(session: nox.Session) -> None:
-    """Check code formatting."""
-    session.install("ruff")
-    session.run("ruff", "format", "--check", ".")
+@session(uv_groups=["dev"])
+def format(s: Session) -> None:
+    s.run("ruff", "format", "--check", "aiotrino")

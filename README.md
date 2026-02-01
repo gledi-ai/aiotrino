@@ -182,16 +182,16 @@ $ pytest tests
 Then you can pass options like `--pdb` or anything supported by `pytest --help`.
 
 To run the tests with different versions of Python in managed *virtualenvs*,
-use `tox` (see the configuration in `tox.ini`):
+use `nox` (see the configuration in `noxfile.py`):
 
 ```
-$ tox
+$ nox
 ```
 
 To run integration tests:
 
 ```
-$ pytest integration_tests
+$ uv run --frozen pytest integration_tests
 ```
 
 They pull a Docker image and then run a container with a Trino server:
