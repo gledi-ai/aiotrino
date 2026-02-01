@@ -1,45 +1,45 @@
 [project]
-name = "aiotrino"
-version = "0.3.0"
+name = "aiotrino-patched"
+version = "0.3.1"
 description = "Asyncio client for the Trino distributed SQL Engine"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12,<4"
 authors = [
-    { name = "Michiel van der Lee & Trino Team", email = "jmt.vanderlee@gmail.com" },
+  { name = "Michiel van der Lee & Trino Team", email = "jmt.vanderlee@gmail.com" },
 ]
 keywords = ["trino", "asyncio", "database", "sql"]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: MacOS :: MacOS X",
-    "Operating System :: POSIX",
-    "Operating System :: Microsoft :: Windows",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
-    "Topic :: Database :: Front-Ends",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: POSIX",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Database :: Front-Ends",
 ]
 dependencies = [
-    "aiohttp",
-    "aioitertools",
-    "lz4",
-    "python-dateutil",
-    "pytz",
-    "tzdata",
-    "tzlocal",
-    "zstandard",
+  "aiohttp",
+  "aioitertools",
+  "lz4",
+  "python-dateutil",
+  "pytz",
+  "tzdata",
+  "tzlocal",
+  "zstandard",
 ]
 
 [project.urls]
-Homepage = "https://github.com/mvanderlee/aiotrino"
-Repository = "https://github.com/mvanderlee/aiotrino"
-Documentation = "https://github.com/mvanderlee/aiotrino"
+Homepage = "https://github.com/gledi-ai/aiotrino"
+Repository = "https://github.com/gledi-ai/aiotrino"
+Documentation = "https://github.com/gledi-ai/aiotrino"
 
 [project.optional-dependencies]
 sqlalchemy = ["sqlalchemy>=2.0"]
@@ -50,22 +50,20 @@ aiotrino = "aiotrino.sqlalchemy.dialect:AIOTrinoDialect"
 
 [dependency-groups]
 dev = [
-    "aioresponses",
-    "boto3",
-    # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
-    # https://github.com/gabrielfalcao/HTTPretty/issues/425
-    "httpretty<1.1",
-    # httppretty compatible but with asyncio support
-    "mocket[speedups]",
-    "mock",
-    "nox",
-    "pre-commit",
-    "pytest",
-    "pytest-aiohttp",
-    "pytest-asyncio",
-    "pytz",
-    "ruff",
-    "testcontainers",
+  "aioresponses",
+  "boto3",
+  # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
+  # https://github.com/gabrielfalcao/HTTPretty/issues/425
+  "httpretty<1.1",
+  # httppretty compatible but with asyncio support
+  "mocket[speedups]",
+  "mock",
+  "pytest",
+  "pytest-aiohttp",
+  "pytest-asyncio",
+  "pytz",
+  "ruff",
+  "testcontainers",
 ]
 
 [build-system]
@@ -76,11 +74,7 @@ build-backend = "hatchling.build"
 packages = ["aiotrino"]
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/aiotrino",
-    "/README.md",
-    "/LICENSE",
-]
+include = ["/aiotrino", "/README.md", "/LICENSE"]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -90,17 +84,17 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "C",  # flake8-comprehensions
-    "B",  # flake8-bugbear
+  "E", # pycodestyle errors
+  "W", # pycodestyle warnings
+  "F", # pyflakes
+  "I", # isort
+  "C", # flake8-comprehensions
+  "B", # flake8-bugbear
 ]
 ignore = [
-    "B008",  # do not perform function calls in argument defaults
-    "B028",  # No explicit stacklevel argument found.
-    "C901",  # too complex
+  "B008", # do not perform function calls in argument defaults
+  "B028", # No explicit stacklevel argument found.
+  "C901", # too complex
 ]
 
 [tool.ruff.lint.per-file-ignores]
