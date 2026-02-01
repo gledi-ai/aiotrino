@@ -1,5 +1,4 @@
-from collections.abc import AsyncIterable
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterable, AsyncIterator
 
 
 _NOT_PROVIDED = object()  # sentinel object to detect when a kwarg was not given

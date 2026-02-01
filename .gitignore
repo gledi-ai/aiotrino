@@ -146,3 +146,5 @@ media
 static
 
 .vscode/
+.envrc
+

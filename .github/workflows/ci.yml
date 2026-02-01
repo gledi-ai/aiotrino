@@ -8,27 +8,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [
-          '3.9',
-          '3.10',
-          '3.11',
-          '3.12',
-          '3.13',
-        ]
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Set up python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install libkrb5-dev
-          pip install .[tests]
+          pip install nox nox-uv
 
-      - name: Run tests
-        run: pytest -s tests/
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ">=0.9,<0.10"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Run linter
+        run: nox --session=lint --non-interactive
+
+      - name: Run formatter check
+        run: nox --session=format --non-interactive
+
+      - name: Run tests for each supported Python version
+        run: nox --session=test --non-interactive --python ${{ matrix.python-version }}

@@ -3,31 +3,15 @@ from __future__ import annotations
 import abc
 import base64
 import uuid
-from datetime import date
-from datetime import datetime
-from datetime import time
-from datetime import timedelta
-from datetime import timezone
-from datetime import tzinfo
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
-from typing import Any
-from typing import Dict
-from typing import Generic
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import TypeVar
+from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
 
 from aiotrino import exceptions
-from aiotrino.types import POWERS_OF_TEN
-from aiotrino.types import NamedRowTuple
-from aiotrino.types import Time
-from aiotrino.types import Timestamp
-from aiotrino.types import TimestampWithTimeZone
-from aiotrino.types import TimeWithTimeZone
+from aiotrino.types import POWERS_OF_TEN, NamedRowTuple, Time, Timestamp, TimestampWithTimeZone, TimeWithTimeZone
 
 
 T = TypeVar("T")

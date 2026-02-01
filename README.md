@@ -1,15 +1,20 @@
-[![Build Status](https://github.com/mvanderlee/aiotrino/workflows/ci/badge.svg)](https://github.com/mvanderlee/aiotrino/actions?query=workflow%3Aci+event%3Apush+branch%3Apy3-async)
+[![Build Status](https://github.com/gledi-ai/aiotrino/workflows/ci/badge.svg)](https://github.com/gledi-ai/aiotrino/actions?query=workflow%3Aci+event%3Apush+branch%3Apy3-async)
 [![Trino Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://trino.io/slack.html)
 [![Trino: The Definitive Guide book download](https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen)](https://www.starburst.io/info/oreilly-trino-guide/)
+
+> A fork of [aiotrino](https://github.com/mvanderlee/aiotrino) to work around some problems I was facing my environment.
+> This is not an official fork and is not affiliated with the original author in any way and is supposed to be temporary until the original package fixes the issues I was facing.
+
 
 # Introduction
 
 This package provides a asyncio client interface to query [Trino](https://trino.io/)
-a distributed SQL engine. It supports Python 3.9, 3.10, 3.11, 3.12, 3.13.
+a distributed SQL engine. It supports Python 3.12, 3.13, 3.14.
+
 # Installation
 
 ```
-$ pip install aiotrino
+$ pip install aiotrino-patched
 ```
 
 # Quick Start
@@ -18,6 +23,7 @@ Use the DBAPI interface to query Trino:
 
 ```python
 import aiotrino
+
 conn = aiotrino.dbapi.connect(
     host='localhost',
     port=8080,
@@ -33,6 +39,7 @@ await conn.close()
 Or with context manager 
 ```python
 import aiotrino
+
 async with aiotrino.dbapi.connect(
     host='localhost',
     port=8080,
@@ -175,16 +182,16 @@ $ pytest tests
 Then you can pass options like `--pdb` or anything supported by `pytest --help`.
 
 To run the tests with different versions of Python in managed *virtualenvs*,
-use `tox` (see the configuration in `tox.ini`):
+use `nox` (see the configuration in `noxfile.py`):
 
 ```
-$ tox
+$ nox
 ```
 
 To run integration tests:
 
 ```
-$ pytest integration_tests
+$ uv run --frozen pytest integration_tests
 ```
 
 They pull a Docker image and then run a container with a Trino server:
@@ -206,7 +213,7 @@ Supported OS Ubuntu 22.04
 
     ```shell
     # Install the latest of all supported versions
-    pyenv install 3.9, 3.10, 3.11, 3.12, 3.13
+    pyenv install 3.12, 3.13, 3.14
     ```
 
 3. Set the installed versions as default for the shell. This allows `tox` to find them.
@@ -217,35 +224,37 @@ Supported OS Ubuntu 22.04
     ```
 
     ```shell
-    pyenv shell 3.13.2 3.12.9 3.11.11 3.10.16 3.9.21
+    pyenv shell 3.14 3.13 3.12
     ```
 
-4. Install `tox`
+4. Install `nox` if not already installed globally
 
     ```shell
-    pip install tox
+    uv pip install nox
     ```
 
-5. Run `tox`
+5. Run `nox`
 
     ```shell
-    tox
+    nox
     ```
 
 ## Releasing
 
 - [Set up your development environment](#Getting-Started-With-Development).
-- Change version in `aiotrino/__init__.py`.
+- Bump the version using `uv version --bump {major|minor|patch}`.
 - Commit and create an annotated tag (`git tag -m '' current_version`)
-- Run the following:
+- Run the following (assuming you have `uv` installed and the environment variable `UV_PUBLISH_TOKEN` has been set to your PyPI token):
   ```bash
-  . .venv/bin/activate &&
-  pip install twine wheel &&
-  rm -rf dist/ &&
-  ./setup.py sdist bdist_wheel &&
-  twine upload dist/* &&
-  open https://pypi.org/project/aiotrino/ &&
-  echo "Released!"
+  rm -rf dist
+  uv build
+  uv publish
+  ```
+- If you want to release to TestPyPI first, run (assuming you have the environment variable `UV_TEST_PUBLISH_TOKEN` has been set to your TestPyPI token):
+  ```bash
+  rm -rf dist
+  uv build
+  uv publish --publish-url https://test.pypi.org/legacy/ --token $UV_TEST_PUBLISH_TOKEN
   ```
 - Push the branch and the tag (`git push upstream master current_version`)
 - Send release announcement.
