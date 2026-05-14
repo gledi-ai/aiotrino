@@ -1,11 +1,8 @@
-from typing import Any
-from typing import Dict
-from typing import List
+from typing import Any, Dict, List
 from unittest import mock
 
 import pytest
-from sqlalchemy.engine.url import URL
-from sqlalchemy.engine.url import make_url
+from sqlalchemy.engine.url import URL, make_url
 
 from aiotrino.auth import BasicAuthentication
 from aiotrino.dbapi import Connection

@@ -15,8 +15,7 @@ import pytest
 from aiohttp import ClientSession
 
 from aiotrino import constants
-from aiotrino.dbapi import Connection
-from aiotrino.dbapi import connect
+from aiotrino.dbapi import Connection, connect
 
 
 class aiter_mock:

@@ -12,11 +12,7 @@
 import pytest
 from sqlalchemy.sql.sqltypes import ARRAY
 
-from aiotrino.sqlalchemy.datatype import MAP
-from aiotrino.sqlalchemy.datatype import ROW
-from aiotrino.sqlalchemy.datatype import TIME
-from aiotrino.sqlalchemy.datatype import TIMESTAMP
-from aiotrino.sqlalchemy.datatype import SQLType
+from aiotrino.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP, SQLType
 
 
 @pytest.fixture(scope="session")

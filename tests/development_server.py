@@ -5,71 +5,52 @@ from pathlib import Path
 
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.network import Network
-from testcontainers.core.waiting_utils import wait_for_logs
-from testcontainers.localstack import LocalStackContainer
+from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from aiotrino.constants import DEFAULT_PORT
 
 
-MINIO_ROOT_USER = "minio-access-key"
-MINIO_ROOT_PASSWORD = "minio-secret-key"
+# Garage S3 credentials used by the spooling-manager.properties file under etc/.
+# Keep these in sync with etc/spooling-manager.properties.
+GARAGE_ACCESS_KEY = "GKAIOTRINOTESTKEY"
+GARAGE_SECRET_KEY = "aiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrino"
+GARAGE_BUCKET = "spooling"
+GARAGE_IMAGE = "dxflrs/garage:v2.3.0"
+GARAGE_S3_PORT = 3900
 
 TRINO_VERSION = os.environ.get("TRINO_VERSION") or "latest"
 TRINO_HOST = "localhost"
 
 
-def create_bucket(s3_client):
-    bucket_name = "spooling"
-    try:
-        print("Checking for bucket existence...")
-        response = s3_client.list_buckets()
-        buckets = [bucket["Name"] for bucket in response["Buckets"]]
-        if bucket_name in buckets:
-            print("Bucket exists!")
-            return
-    except s3_client.exceptions.ClientError as e:
-        if not e.response["Error"]["Code"] == "404":
-            print("An error occurred:", e)
-            return
-
-    try:
-        print("Creating bucket...")
-        s3_client.create_bucket(
-            Bucket=bucket_name,
-        )
-        print("Bucket created!")
-    except s3_client.exceptions.ClientError as e:
-        print("An error occurred:", e)
-
-
 @contextmanager
 def start_development_server(port=None, trino_version=TRINO_VERSION):
     network = None
-    localstack = None
+    garage = None
     trino = None
 
     try:
         network = Network().create()
         supports_spooling_protocol = TRINO_VERSION == "latest" or int(TRINO_VERSION) >= 466
         if supports_spooling_protocol:
-            localstack = (
-                LocalStackContainer(image="localstack/localstack:latest", region_name="us-east-1")
-                .with_name("localstack")
+            root = Path(__file__).parent.parent
+            garage = (
+                DockerContainer(GARAGE_IMAGE)
+                .with_name("garage")
+                .with_kwargs(hostname="garage")
                 .with_network(network)
-                .with_bind_ports(4566, 4566)
-                .with_bind_ports(4571, 4571)
-                .with_env("SERVICES", "s3")
+                .with_bind_ports(GARAGE_S3_PORT, GARAGE_S3_PORT)
+                .with_env("GARAGE_DEFAULT_ACCESS_KEY", GARAGE_ACCESS_KEY)
+                .with_env("GARAGE_DEFAULT_SECRET_KEY", GARAGE_SECRET_KEY)
+                .with_env("GARAGE_DEFAULT_BUCKET", GARAGE_BUCKET)
+                .with_command("/garage server --single-node --default-bucket")
+                .with_volume_mapping(str(root / "etc/garage/garage.toml"), "/etc/garage.toml", "ro")
+                # "S3 API server listening on" is the last startup-phase log line
+                # before Garage starts accepting requests.
+                .waiting_for(LogMessageWaitStrategy("S3 API server listening on").with_startup_timeout(30))
             )
 
-            # Start the container
-            print("Starting LocalStack container...")
-            localstack.start()
-
-            # Wait for logs indicating MinIO has started
-            wait_for_logs(localstack, "Ready.", timeout=30)
-
-            # create spooling bucket
-            create_bucket(localstack.get_client("s3"))
+            print("Starting Garage container...")
+            garage.start()
 
         trino = (
             DockerContainer(f"trinodb/trino:{trino_version}")
@@ -77,34 +58,32 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
             .with_network(network)
             .with_env("TRINO_CONFIG_DIR", "/etc/trino")
             .with_bind_ports(DEFAULT_PORT, port)
+            .waiting_for(LogMessageWaitStrategy("SERVER STARTED").with_startup_timeout(60))
         )
 
         root = Path(__file__).parent.parent
 
-        trino = trino.with_volume_mapping(str(root / "etc/catalog"), "/etc/trino/catalog")
+        trino = trino.with_volume_mapping(str(root / "etc/trino/catalog"), "/etc/trino/catalog")
 
         # Enable spooling config
         if supports_spooling_protocol:
             trino.with_volume_mapping(
-                str(root / "etc/spooling-manager.properties"), "/etc/trino/spooling-manager.properties", "rw"
-            ).with_volume_mapping(str(root / "etc/jvm.config"), "/etc/trino/jvm.config").with_volume_mapping(
-                str(root / "etc/config.properties"), "/etc/trino/config.properties"
+                str(root / "etc/trino/spooling-manager.properties"), "/etc/trino/spooling-manager.properties", "rw"
+            ).with_volume_mapping(str(root / "etc/trino/jvm.config"), "/etc/trino/jvm.config").with_volume_mapping(
+                str(root / "etc/trino/config.properties"), "/etc/trino/config.properties"
             )
         else:
             trino.with_volume_mapping(
-                str(root / "etc/jvm-pre-466.config"), "/etc/trino/jvm.config"
-            ).with_volume_mapping(str(root / "etc/config-pre-466.properties"), "/etc/trino/config.properties")
+                str(root / "etc/trino/jvm-pre-466.config"), "/etc/trino/jvm.config"
+            ).with_volume_mapping(str(root / "etc/trino/config-pre-466.properties"), "/etc/trino/config.properties")
 
         print("Starting Trino container...")
         trino.start()
 
-        # Wait for logs indicating the service has started
-        wait_for_logs(trino, "SERVER STARTED", timeout=60)
-
         # Otherwise some tests fail with No nodes available
         time.sleep(2)
 
-        yield localstack, trino, network
+        yield garage, trino, network
     finally:
         # Stop containers when exiting the context
         if trino:
@@ -114,12 +93,12 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
             except Exception as e:
                 print(f"Error stopping Trino container: {e}")
 
-        if localstack:
+        if garage:
             try:
-                print("Stopping LocalStack container...")
-                localstack.stop()
+                print("Stopping Garage container...")
+                garage.stop()
             except Exception as e:
-                print(f"Error stopping LocalStack container: {e}")
+                print(f"Error stopping Garage container: {e}")
 
         if network:
             try:

@@ -1,12 +1,7 @@
 import math
 import re
 import uuid
-from datetime import date
-from datetime import datetime
-from datetime import time
-from datetime import timedelta
-from datetime import timezone
-from datetime import tzinfo
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 

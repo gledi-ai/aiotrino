@@ -11,19 +11,11 @@
 # limitations under the License.
 import pytest
 from sqlalchemy.exc import UnsupportedCompilationError
-from sqlalchemy.sql.sqltypes import ARRAY
-from sqlalchemy.sql.sqltypes import CHAR
-from sqlalchemy.sql.sqltypes import DATE
-from sqlalchemy.sql.sqltypes import DECIMAL
-from sqlalchemy.sql.sqltypes import INTEGER
-from sqlalchemy.sql.sqltypes import VARCHAR
+from sqlalchemy.sql.sqltypes import ARRAY, CHAR, DATE, DECIMAL, INTEGER, VARCHAR
 from sqlalchemy.sql.type_api import TypeEngine
 
 from aiotrino.sqlalchemy import datatype
-from aiotrino.sqlalchemy.datatype import MAP
-from aiotrino.sqlalchemy.datatype import ROW
-from aiotrino.sqlalchemy.datatype import TIME
-from aiotrino.sqlalchemy.datatype import TIMESTAMP
+from aiotrino.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP
 
 
 @pytest.mark.parametrize(

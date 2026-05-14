@@ -12,8 +12,7 @@
 import asyncio
 import time
 import urllib
-from typing import Dict
-from typing import Optional
+from typing import Dict, Optional
 from unittest import mock
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfoNotFoundError
@@ -21,21 +20,21 @@ from zoneinfo import ZoneInfoNotFoundError
 import aiohttp
 import aiohttp.client_exceptions
 import pytest
-from mocket.plugins.httpretty import async_httprettified
-from mocket.plugins.httpretty import httpretty
+from mocket.plugins.httpretty import async_httprettified, httpretty
 from tzlocal import get_localzone_name  # type: ignore
 from yarl import URL
 
 import aiotrino
-from aiotrino import __version__
-from aiotrino import constants
-from aiotrino.client import ClientSession
-from aiotrino.client import TrinoQuery
-from aiotrino.client import TrinoRequest
-from aiotrino.client import TrinoResult
-from aiotrino.client import _DelayExponential
-from aiotrino.client import _retry_with
-from aiotrino.client import _RetryWithExponentialBackoff
+from aiotrino import __version__, constants
+from aiotrino.client import (
+    ClientSession,
+    TrinoQuery,
+    TrinoRequest,
+    TrinoResult,
+    _DelayExponential,
+    _retry_with,
+    _RetryWithExponentialBackoff,
+)
 
 
 def create_response() -> aiohttp.ClientResponse:

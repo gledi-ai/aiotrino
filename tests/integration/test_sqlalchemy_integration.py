@@ -17,17 +17,11 @@ from typing import AsyncGenerator
 import pytest
 import pytest_asyncio
 import sqlalchemy as sqla
-from sqlalchemy.ext.asyncio import AsyncConnection
-from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.sql import and_
-from sqlalchemy.sql import not_
-from sqlalchemy.sql import or_
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
+from sqlalchemy.sql import and_, not_, or_
 from sqlalchemy.types import ARRAY
 
-from aiotrino.sqlalchemy.datatype import JSON
-from aiotrino.sqlalchemy.datatype import MAP
-from aiotrino.sqlalchemy.datatype import ROW
+from aiotrino.sqlalchemy.datatype import JSON, MAP, ROW
 from tests.integration.conftest import trino_version
 from tests.unit.conftest import sqlalchemy_version
 

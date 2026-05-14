@@ -13,14 +13,9 @@ import math
 import sys
 import time as t
 import uuid
-from datetime import date
-from datetime import datetime
-from datetime import time
-from datetime import timedelta
-from datetime import timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-from typing import AsyncGenerator
-from typing import Tuple
+from typing import AsyncGenerator, Tuple
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -30,16 +25,9 @@ from tzlocal import get_localzone_name  # type: ignore
 
 import aiotrino
 from aiotrino import constants
-from aiotrino.client import InlineSegment
-from aiotrino.client import SegmentIterator
-from aiotrino.client import SpooledSegment
-from aiotrino.dbapi import Connection
-from aiotrino.dbapi import Cursor
-from aiotrino.dbapi import DescribeOutput
-from aiotrino.dbapi import TimeBoundLRUCache
-from aiotrino.exceptions import NotSupportedError
-from aiotrino.exceptions import TrinoQueryError
-from aiotrino.exceptions import TrinoUserError
+from aiotrino.client import InlineSegment, SegmentIterator, SpooledSegment
+from aiotrino.dbapi import Connection, Cursor, DescribeOutput, TimeBoundLRUCache
+from aiotrino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
 from aiotrino.mapper import RowMapperFactory
 from aiotrino.transaction import IsolationLevel
 from tests.integration.conftest import trino_version
