@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
+        with:
+          # hatch-vcs derives the version from git tags; need full history
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |

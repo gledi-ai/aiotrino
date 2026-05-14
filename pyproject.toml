@@ -1,6 +1,6 @@
 [project]
 name = "aiotrino-patched"
-version = "0.3.1"
+dynamic = ["version"]
 description = "Asyncio client for the Trino distributed SQL Engine"
 readme = "README.md"
 license = "Apache-2.0"
@@ -66,8 +66,15 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "aiotrino/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["aiotrino"]

@@ -137,7 +137,6 @@ wheels = [
 
 [[package]]
 name = "aiotrino-patched"
-version = "0.3.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -185,7 +184,7 @@ requires-dist = [
     { name = "tzlocal" },
     { name = "zstandard" },
 ]
-provides-extras = ["sqlalchemy", "all"]
+provides-extras = ["all", "sqlalchemy"]
 
 [package.metadata.requires-dev]
 dev = [

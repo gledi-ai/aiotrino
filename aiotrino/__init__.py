@@ -11,7 +11,7 @@
 # limitations under the License.
 
 from . import auth, client, constants, dbapi, exceptions, logging
-from ._version import __author__, __author_email__, __description__, __license__, __title__, __url__, __version__
+from ._version import __version__
 
 
 __all__ = [
@@ -21,11 +21,5 @@ __all__ = [
     "dbapi",
     "exceptions",
     "logging",
-    "__author__",
-    "__author_email__",
-    "__description__",
-    "__license__",
-    "__title__",
-    "__url__",
     "__version__",
 ]
