@@ -51,7 +51,6 @@ aiotrino = "aiotrino.sqlalchemy.dialect:AIOTrinoDialect"
 [dependency-groups]
 dev = [
   "aioresponses",
-  "boto3",
   # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
   # https://github.com/gabrielfalcao/HTTPretty/issues/425
   "httpretty<1.1",
@@ -77,6 +76,7 @@ packages = ["aiotrino"]
 include = ["/aiotrino", "/README.md", "/LICENSE"]
 
 [tool.uv]
+exclude-newer = "7d"
 default-groups = ["dev"]
 
 [tool.ruff]

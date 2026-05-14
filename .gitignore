@@ -148,3 +148,10 @@ static
 .vscode/
 .envrc
 
+# AI agents files & directories
+.serena/
+.claude/
+.opencode/
+CLAUDE.md
+AGENTS.md
+.superpowers/
