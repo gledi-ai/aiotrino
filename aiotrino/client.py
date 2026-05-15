@@ -57,14 +57,11 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 import aiohttp.client_exceptions
-import lz4.block
-import zstandard
 from aiohttp.client_exceptions import ClientPayloadError
 from aiohttp.client_proto import ResponseHandler
 from aiohttp.helpers import BaseTimerContext
 from aiohttp.http import HttpResponseParser
 from multidict import CIMultiDict
-from tzlocal import get_localzone_name  # type: ignore
 
 import aiotrino.logging
 from aiotrino import constants, exceptions
@@ -87,6 +84,37 @@ __all__ = [
 
 
 logger = aiotrino.logging.get_logger(__name__)
+
+
+try:
+    import lz4.block
+except ImportError as err:
+    _LZ4_ERROR: Optional[str] = str(err)
+else:
+    _LZ4_ERROR = None
+
+try:
+    import zstandard
+except ImportError as err:
+    _ZSTD_ERROR: Optional[str] = str(err)
+else:
+    _ZSTD_ERROR = None
+
+ENCODINGS = ["json+zstd", "json+lz4", "json"]
+CODECS_UNAVAILABLE: dict[str, str] = {}
+if _LZ4_ERROR:
+    CODECS_UNAVAILABLE["lz4"] = _LZ4_ERROR
+if _ZSTD_ERROR:
+    CODECS_UNAVAILABLE["zstd"] = _ZSTD_ERROR
+
+
+def _available_encodings() -> list[str]:
+    return [
+        e
+        for e in ENCODINGS
+        if not (e == "json+lz4" and "lz4" in CODECS_UNAVAILABLE)
+        and not (e == "json+zstd" and "zstd" in CODECS_UNAVAILABLE)
+    ]
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
@@ -168,9 +196,13 @@ class ClientSession:
         self._extra_credential = extra_credential
         self._client_tags = client_tags.copy() if client_tags is not None else []
         self._roles = self._format_roles(roles) if roles is not None else {}
-        self._timezone = timezone or get_localzone_name()
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
+            self._timezone = timezone
+        else:
+            from tzlocal import get_localzone_name  # type: ignore
+
+            self._timezone = get_localzone_name()
         self._encoding = encoding
 
     @property
@@ -577,8 +609,11 @@ class TrinoRequest:
         headers[constants.HEADER_CATALOG] = self._client_session.catalog
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
-        headers[constants.HEADER_USER] = self._client_session.user
-        headers[constants.HEADER_AUTHORIZATION_USER] = self._client_session.authorization_user
+        if self._client_session.authorization_user is not None:
+            headers[constants.HEADER_ORIGINAL_USER] = self._client_session.user
+            headers[constants.HEADER_USER] = self._client_session.authorization_user
+        else:
+            headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
         if self._client_session.encoding is None:
             pass
@@ -1321,8 +1356,16 @@ class CompressedQueryDataDecoderFactory:
 
     def create(self, encoding: str) -> QueryDataDecoder:
         if encoding == "json+zstd":
+            if "zstd" in CODECS_UNAVAILABLE:
+                raise ValueError(
+                    f"zstd is not installed so json+zstd encoding is not supported: {CODECS_UNAVAILABLE['zstd']}"
+                )
             return ZStdQueryDataDecoder(JsonQueryDataDecoder(self._mapper))
         elif encoding == "json+lz4":
+            if "lz4" in CODECS_UNAVAILABLE:
+                raise ValueError(
+                    f"lz4 is not installed so json+lz4 encoding is not supported: {CODECS_UNAVAILABLE['lz4']}"
+                )
             return Lz4QueryDataDecoder(JsonQueryDataDecoder(self._mapper))
         elif encoding == "json":
             return JsonQueryDataDecoder(self._mapper)
@@ -1372,10 +1415,12 @@ class CompressedQueryDataDecoder(QueryDataDecoder):
 
 
 class ZStdQueryDataDecoder(CompressedQueryDataDecoder):
-    zstd_decompressor = zstandard.ZstdDecompressor()
+    def __init__(self, delegate: QueryDataDecoder) -> None:
+        super().__init__(delegate)
+        self._zstd_decompressor = zstandard.ZstdDecompressor()
 
     def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
-        return ZStdQueryDataDecoder.zstd_decompressor.decompress(data)
+        return self._zstd_decompressor.decompress(data)
 
 
 class Lz4QueryDataDecoder(CompressedQueryDataDecoder):

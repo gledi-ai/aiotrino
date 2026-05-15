@@ -97,7 +97,7 @@ async def test_hostname_parsing():
 
     https_server_without_port = Connection("https://mytrinoserver.domain")
     assert https_server_without_port.host == "mytrinoserver.domain"
-    assert https_server_without_port.port == 8080
+    assert https_server_without_port.port == constants.DEFAULT_TLS_PORT
     assert https_server_without_port.http_scheme == constants.HTTPS
 
     http_server_with_port = Connection("http://mytrinoserver.domain:9999")
@@ -124,6 +124,25 @@ async def test_hostname_parsing():
     assert only_hostname_with_path.host == "mytrinoserver.domain/some_path"
     assert only_hostname_with_path.port == 8080
     assert only_hostname_with_path.http_scheme == constants.HTTP
+
+
+@pytest.mark.parametrize(
+    "host, port, http_scheme_input_argument, http_scheme_set",
+    [
+        ("https://mytrinoserver.domain:9999", None, None, constants.HTTPS),
+        ("http://mytrinoserver.domain:9999", None, None, constants.HTTP),
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, None, constants.HTTPS),
+        ("mytrinoserver.domain", constants.DEFAULT_PORT, None, constants.HTTP),
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, constants.HTTP, constants.HTTP),
+        ("mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTPS, constants.HTTPS),
+        ("mytrinoserver.domain", None, constants.HTTPS, constants.HTTPS),
+        ("mytrinoserver.domain", None, None, constants.HTTP),
+    ],
+)
+@pytest.mark.asyncio
+async def test_setting_http_scheme(host, port, http_scheme_input_argument, http_scheme_set):
+    connection = Connection(host, port, http_scheme=http_scheme_input_argument)
+    assert connection.http_scheme == http_scheme_set
 
 
 @pytest.mark.asyncio
