@@ -132,6 +132,17 @@ def connect(*args, **kwargs):
 _USE_DEFAULT_ENCODING = object()
 
 
+def _resolve_http_scheme(parsed_host, port: Optional[int], http_scheme: Optional[str]) -> str:
+    if parsed_host.scheme:
+        return parsed_host.scheme
+    if http_scheme is not None:
+        return http_scheme
+    effective_port = parsed_host.port if parsed_host.port is not None else port
+    if effective_port == constants.DEFAULT_TLS_PORT:
+        return constants.HTTPS
+    return constants.HTTP
+
+
 def _resolve_port(parsed_host, port: Optional[int], http_scheme: str) -> int:
     if parsed_host.port is not None:
         return parsed_host.port
@@ -160,7 +171,7 @@ class Connection(object):
         schema: str = constants.DEFAULT_SCHEMA,
         session_properties: Optional[dict[str, str]] = None,
         http_headers: Optional[dict[str, str]] = None,
-        http_scheme: str = constants.HTTP,
+        http_scheme: Optional[str] = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
         extra_credential: Optional[list[tuple[str, str]]] = None,
         max_attempts: int = constants.DEFAULT_MAX_ATTEMPTS,
@@ -186,7 +197,7 @@ class Connection(object):
             ]
 
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
-        self.http_scheme = http_scheme if not parsed_host.scheme else parsed_host.scheme
+        self.http_scheme = _resolve_http_scheme(parsed_host, port, http_scheme)
         self.port = _resolve_port(parsed_host, port, self.http_scheme)
         self.user = user
         self.source = source
@@ -215,7 +226,6 @@ class Connection(object):
         else:
             self._http_session = http_session
         self.http_headers = http_headers
-        self.http_scheme = http_scheme if not parsed_host.scheme else parsed_host.scheme
         self.auth = auth
         self.extra_credential = extra_credential
         self.max_attempts = max_attempts
