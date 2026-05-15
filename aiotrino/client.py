@@ -64,7 +64,6 @@ from aiohttp.client_proto import ResponseHandler
 from aiohttp.helpers import BaseTimerContext
 from aiohttp.http import HttpResponseParser
 from multidict import CIMultiDict
-from tzlocal import get_localzone_name  # type: ignore
 
 import aiotrino.logging
 from aiotrino import constants, exceptions
@@ -168,9 +167,13 @@ class ClientSession:
         self._extra_credential = extra_credential
         self._client_tags = client_tags.copy() if client_tags is not None else []
         self._roles = self._format_roles(roles) if roles is not None else {}
-        self._timezone = timezone or get_localzone_name()
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
+            self._timezone = timezone
+        else:
+            from tzlocal import get_localzone_name  # type: ignore
+
+            self._timezone = get_localzone_name()
         self._encoding = encoding
 
     @property
