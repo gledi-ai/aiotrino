@@ -35,6 +35,7 @@ HEADER_CATALOG = "X-Trino-Catalog"
 HEADER_SCHEMA = "X-Trino-Schema"
 HEADER_SOURCE = "X-Trino-Source"
 HEADER_USER = "X-Trino-User"
+HEADER_ORIGINAL_USER = "X-Trino-Original-User"
 HEADER_CLIENT_INFO = "X-Trino-Client-Info"
 HEADER_CLIENT_TAGS = "X-Trino-Client-Tags"
 HEADER_EXTRA_CREDENTIAL = "X-Trino-Extra-Credential"
@@ -60,7 +61,6 @@ HEADER_SET_CATALOG = "X-Trino-Set-Catalog"
 
 HEADER_CLIENT_CAPABILITIES = "X-Trino-Client-Capabilities"
 
-HEADER_AUTHORIZATION_USER = "X-Trino-Authorization-User"
 HEADER_SET_AUTHORIZATION_USER = "X-Trino-Set-Authorization-User"
 HEADER_RESET_AUTHORIZATION_USER = "X-Trino-Reset-Authorization-User"
 
