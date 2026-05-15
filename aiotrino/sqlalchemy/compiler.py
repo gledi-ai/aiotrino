@@ -13,6 +13,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import compiler, sqltypes
 from sqlalchemy.sql.base import DialectKWArgs
 from sqlalchemy.sql.functions import GenericFunction
+from sqlalchemy.util import warn as SAWarn
 
 
 # https://trino.io/docs/current/language/reserved.html
@@ -175,7 +176,17 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
 
 class TrinoDDLCompiler(compiler.DDLCompiler):
-    pass
+    def visit_foreign_key_constraint(self, constraint, **kw):
+        SAWarn("Trino does not support FOREIGN KEY constraints. Constraint will be ignored.")
+        return None
+
+    def visit_primary_key_constraint(self, constraint, **kw):
+        SAWarn("Trino does not support PRIMARY KEY constraints. Constraint will be ignored.")
+        return None
+
+    def visit_unique_constraint(self, constraint, **kw):
+        SAWarn("Trino does not support UNIQUE constraints. Constraint will be ignored.")
+        return None
 
 
 class TrinoTypeCompiler(compiler.GenericTypeCompiler):
