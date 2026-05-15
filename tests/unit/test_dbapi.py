@@ -97,7 +97,7 @@ async def test_hostname_parsing():
 
     https_server_without_port = Connection("https://mytrinoserver.domain")
     assert https_server_without_port.host == "mytrinoserver.domain"
-    assert https_server_without_port.port == 8080
+    assert https_server_without_port.port == constants.DEFAULT_TLS_PORT
     assert https_server_without_port.http_scheme == constants.HTTPS
 
     http_server_with_port = Connection("http://mytrinoserver.domain:9999")
