@@ -190,11 +190,7 @@ class Connection(object):
         parsed_host = urlparse(host, allow_fragments=False)
 
         if encoding is _USE_DEFAULT_ENCODING:
-            encoding = [
-                "json+zstd",
-                "json+lz4",
-                "json",
-            ]
+            encoding = aiotrino.client._available_encodings()
 
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
         self.http_scheme = _resolve_http_scheme(parsed_host, port, http_scheme)
