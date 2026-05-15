@@ -1,11 +1,13 @@
 name: release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
 
-# Trusted Publishing (OIDC) needs id-token: write on the publish jobs.
-# Workflow-wide default is read-only; jobs elevate as needed.
+# Trusted Publishing (OIDC) needs id-token: write on the publish jobs;
+# the GitHub Release job needs contents: write. Workflow-wide default is
+# read-only; jobs elevate as needed.
 permissions:
   contents: read
 
@@ -20,7 +22,7 @@ jobs:
         id: classify
         env:
           # NB: passed via env to avoid GitHub Actions expression injection.
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           # Stable:     v1.2.3
@@ -85,8 +87,8 @@ jobs:
           retention-days: 7
 
   publish-testpypi:
+    # Runs for every release (stable + prerelease) as a smoke test before PyPI.
     needs: [classify, build]
-    if: needs.classify.outputs.kind == 'prerelease'
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -104,7 +106,9 @@ jobs:
           print-hash: true
 
   publish-pypi:
-    needs: [classify, build]
+    # Stable tags only; gated behind a successful TestPyPI upload so a broken
+    # release (bad metadata, missing files, etc.) never reaches PyPI.
+    needs: [classify, build, publish-testpypi]
     if: needs.classify.outputs.kind == 'stable'
     runs-on: ubuntu-latest
     environment:
@@ -120,3 +124,29 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
+
+  github-release:
+    # Creates the GitHub Release after publishing succeeds.
+    # - For stable tags: requires publish-pypi success.
+    # - For prereleases: publish-pypi is skipped, so we accept that too.
+    needs: [classify, publish-testpypi, publish-pypi]
+    if: |
+      !cancelled()
+      && needs.publish-testpypi.result == 'success'
+      && needs.publish-pypi.result != 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: ${{ needs.classify.outputs.kind == 'prerelease' }}
+          generate_release_notes: true
+          files: dist/*
+          fail_on_unmatched_files: true
