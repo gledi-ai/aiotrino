@@ -84,7 +84,7 @@ include = ["/aiotrino", "/README.md", "/LICENSE"]
 
 [tool.uv]
 exclude-newer = "7d"
-default-groups = ["dev"]
+default-groups = "all"
 
 [tool.ruff]
 line-length = 120
