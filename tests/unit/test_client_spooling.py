@@ -48,24 +48,23 @@ def _spooled_status(segments):
 
 async def test_fetch_returns_lazy_segment_iterator():
     session = ClientSession(user="test", encoding="json")
-    request = TrinoRequest(host="coordinator", port=8080, client_session=session, http_scheme="http")
-    request._next_uri = "http://coordinator/v1/statement/q1/1"
-    query = TrinoQuery(request, query="SELECT 1")
-    query._row_mapper = mock.Mock()
-    query._row_mapper.map.side_effect = lambda rows: rows
+    async with TrinoRequest(host="coordinator", port=8080, client_session=session, http_scheme="http") as request:
+        request._next_uri = "http://coordinator/v1/statement/q1/1"
+        query = TrinoQuery(request, query="SELECT 1")
+        query._row_mapper = mock.Mock()
+        query._row_mapper.map.side_effect = lambda rows: rows
 
-    status = _spooled_status([_inline_segment([[1], [2]]), _inline_segment([[3]])])
-    with (
-        mock.patch.object(request, "get", mock.AsyncMock(return_value=mock.Mock())),
-        mock.patch.object(request, "process", mock.AsyncMock(return_value=status)),
-    ):
-        result = await query.fetch()
+        status = _spooled_status([_inline_segment([[1], [2]]), _inline_segment([[3]])])
+        with (
+            mock.patch.object(request, "get", mock.AsyncMock(return_value=mock.Mock())),
+            mock.patch.object(request, "process", mock.AsyncMock(return_value=status)),
+        ):
+            result = await query.fetch()
 
-    assert isinstance(result, SegmentIterator)
-    # Nothing decoded until the iterator is consumed
-    assert result._decoder is None
-    assert [row async for row in result] == [[1], [2], [3]]
-    await request.close()
+        assert isinstance(result, SegmentIterator)
+        # Nothing decoded until the iterator is consumed
+        assert result._decoder is None
+        assert [row async for row in result] == [[1], [2], [3]]
 
 
 async def test_prepend_row_keeps_order():
