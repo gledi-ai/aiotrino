@@ -50,7 +50,7 @@ import urllib.parse
 import warnings
 from abc import abstractmethod
 from asyncio import sleep
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -862,6 +862,13 @@ class TrinoRequest:
             raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'") from None
 
 
+async def _prepend_row(row: list[Any], rows: AsyncIterator[list[Any]]) -> AsyncIterator[list[Any]]:
+    """Yield an already-consumed row back in front of the remaining iterator."""
+    yield row
+    async for remaining in rows:
+        yield remaining
+
+
 class TrinoResult:
     """
     Represent the result of a Trino query as an iterator on rows.
@@ -870,7 +877,7 @@ class TrinoResult:
     https://docs.python.org/3/library/stdtypes.html#generator-types
     """
 
-    def __init__(self, query, rows: list[Any]):
+    def __init__(self, query, rows: list[list[Any]] | list[DecodableSegment] | AsyncIterator[list[Any]]):
         self._query = query
         # Initial rows from the first POST request
         self._rows = rows
@@ -895,9 +902,15 @@ class TrinoResult:
             # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
             while not self._query.finished or self._rows is not None:
                 next_rows = await self._query.fetch() if not self._query.finished else None
-                for row in self._rows:
-                    self._rownumber += 1
-                    yield row
+                if isinstance(self._rows, list):
+                    for row in self._rows:
+                        self._rownumber += 1
+                        yield row
+                elif self._rows is not None:
+                    # Spooling protocol: rows is a lazy async iterator yielding decoded rows
+                    async for row in self._rows:
+                        self._rownumber += 1
+                        yield row
 
                 self._rows = next_rows
 
@@ -944,7 +957,16 @@ class TrinoQuery:
             while not self._columns and not self.finished and not self.cancelled:
                 # Columns are not returned immediately after query is submitted.
                 # Continue fetching data until columns information is available and push fetched rows into buffer.
-                self._result.rows += await self.fetch()
+                new_rows = await self.fetch()
+                if isinstance(new_rows, list):
+                    self._result.rows += new_rows
+                else:
+                    try:
+                        first_row = await anext(new_rows)
+                        self._result.rows = _prepend_row(first_row, new_rows)
+                        break
+                    except StopAsyncIteration:
+                        self._result.rows = []
         return self._columns
 
     @property
@@ -998,9 +1020,23 @@ class TrinoQuery:
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
-        # Execute should block until at least one row is received or query is finished or cancelled
-        while not self.finished and not self.cancelled and len(self._result.rows) == 0:
-            self._result.rows += await self.fetch()
+        # Execute should block until at least one row is received or query is finished or cancelled.
+        #
+        # Two protocols produce rows differently:
+        #  - Direct: fetch() returns a list - accumulate into the existing list.
+        #  - Spooling: fetch() returns a lazy async iterator - replace rows and stop,
+        #    because we cannot cheaply check iterator length.
+        while not self.finished and not self.cancelled and self._result.rows == []:
+            new_rows = await self.fetch()
+            if isinstance(new_rows, list):
+                self._result.rows += new_rows
+            else:
+                try:
+                    first_row = await anext(new_rows)
+                    self._result.rows = _prepend_row(first_row, new_rows)
+                    break
+                except StopAsyncIteration:
+                    self._result.rows = []
         return self._result
 
     def _update_state(self, status: TrinoStatus) -> None:
@@ -1015,7 +1051,7 @@ class TrinoQuery:
         if status.columns:
             self._columns = status.columns
 
-    async def fetch(self) -> list[list[Any], Any]:
+    async def fetch(self) -> list[list[Any]] | list[DecodableSegment] | SegmentIterator:
         """Continue fetching data for the current query_id"""
         try:
             response = await self._request.get(self._request.next_uri)
@@ -1036,15 +1072,14 @@ class TrinoQuery:
             spooled = self._to_segments(rows)
             if self._fetch_mode == "segments":
                 return spooled
-            return [
-                row
-                async for row in SegmentIterator(
-                    spooled,
-                    self._row_mapper,
-                    request=self._request,
-                    heartbeat_interval=self._request._client_session.heartbeat_interval,
-                )
-            ]
+            # Return the iterator directly, do NOT materialize it: segments are downloaded
+            # lazily as rows are consumed, keeping peak memory bounded to one segment.
+            return SegmentIterator(
+                spooled,
+                self._row_mapper,
+                request=self._request,
+                heartbeat_interval=self._request._client_session.heartbeat_interval,
+            )
         if isinstance(status.rows, list):
             return self._row_mapper.map(rows)
         raise ValueError(f"Unexpected type: {type(status.rows)}")
