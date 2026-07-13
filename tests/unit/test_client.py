@@ -48,6 +48,7 @@ def create_response() -> aiohttp.ClientResponse:
         traces=[],
         loop=asyncio.get_running_loop(),
         session=None,
+        stream_writer=mock.Mock(output_size=0),
     )
 
     class MockReader:
