@@ -97,9 +97,11 @@ select = [
   "E", # pycodestyle errors
   "W", # pycodestyle warnings
   "F", # pyflakes
-  "I", # isort
-  "C", # flake8-comprehensions
-  "B", # flake8-bugbear
+  "I",   # isort
+  "C",   # flake8-comprehensions
+  "B",   # flake8-bugbear
+  "LOG", # flake8-logging
+  "G",   # flake8-logging-format
 ]
 ignore = [
   "B008", # do not perform function calls in argument defaults
@@ -113,6 +115,7 @@ ignore = [
 "noxfile.py" = ["F401"]
 
 [tool.ruff.lint.isort]
+known-first-party = ["aiotrino"]
 lines-after-imports = 2
 
 [tool.pytest.ini_options]

@@ -1251,7 +1251,7 @@ class SpooledSegment(Segment):
             if not http_response.ok:
                 await self._request.raise_response_error(http_response)
         except Exception as e:
-            logger.error(f"Failed to acknowledge spooling request for segment {self}: {e}")
+            logger.error("Failed to acknowledge spooling request for segment %s: %s", self, e)
 
     async def _send_spooling_request(self, uri: str, **kwargs) -> aiohttp.ClientResponse:
         headers_with_single_value = {}
