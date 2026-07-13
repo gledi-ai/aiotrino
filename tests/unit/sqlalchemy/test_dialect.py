@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -244,7 +244,7 @@ class TestTrinoDialect:
         ],
     )
     def test_create_connect_args(
-        self, url: URL, generated_url: str, expected_args: List[Any], expected_kwargs: Dict[str, Any]
+        self, url: URL, generated_url: str, expected_args: list[Any], expected_kwargs: dict[str, Any]
     ):
         assert repr(url) == generated_url
 

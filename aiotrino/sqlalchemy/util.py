@@ -1,34 +1,33 @@
 import json
 import re
-from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import quote_plus
 
 from sqlalchemy import exc
 
 
 def _rfc_1738_quote(text):
-    return re.sub(r"[:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
+    return re.sub(r"[:@/]", lambda m: f"%{ord(m.group(0)):X}", text)
 
 
 def _url(
     host: str,
-    port: Optional[int] = 8080,
-    user: Optional[str] = None,
-    password: Optional[str] = None,
-    catalog: Optional[str] = None,
-    schema: Optional[str] = None,
-    source: Optional[str] = "aiotrino-sqlalchemy",
-    session_properties: Dict[str, str] = None,
-    http_headers: Dict[str, Union[str, int]] = None,
-    extra_credential: Optional[List[Tuple[str, str]]] = None,
-    client_tags: Optional[List[str]] = None,
-    legacy_primitive_types: Optional[bool] = None,
-    legacy_prepared_statements: Optional[bool] = None,
-    access_token: Optional[str] = None,
-    cert: Optional[str] = None,
-    key: Optional[str] = None,
-    verify: Optional[bool] = None,
-    roles: Optional[Dict[str, str]] = None,
+    port: int | None = 8080,
+    user: str | None = None,
+    password: str | None = None,
+    catalog: str | None = None,
+    schema: str | None = None,
+    source: str | None = "aiotrino-sqlalchemy",
+    session_properties: dict[str, str] | None = None,
+    http_headers: dict[str, str | int] | None = None,
+    extra_credential: list[tuple[str, str]] | None = None,
+    client_tags: list[str] | None = None,
+    legacy_primitive_types: bool | None = None,
+    legacy_prepared_statements: bool | None = None,
+    access_token: str | None = None,
+    cert: str | None = None,
+    key: str | None = None,
+    verify: bool | None = None,
+    roles: dict[str, str] | None = None,
 ) -> str:
     """
     Composes a SQLAlchemy connection string from the given database connection

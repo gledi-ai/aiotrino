@@ -12,7 +12,6 @@
 import asyncio
 import time
 import urllib
-from typing import Dict, Optional
 from unittest import mock
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfoNotFoundError
@@ -631,6 +630,7 @@ class RetryRecorder:
             raise self._error
         if self._result is not None:
             return self._result
+        return None
 
     @property
     def retry_count(self):
@@ -852,7 +852,7 @@ async def test_retry_with():
         await with_retry(FailerUntil(3).__call__)()
 
 
-def assert_headers_with_roles(headers: Dict[str, str], roles: Optional[str]):
+def assert_headers_with_roles(headers: dict[str, str], roles: str | None):
     if roles is None:
         assert constants.HEADER_ROLE not in headers
     else:
@@ -874,7 +874,7 @@ async def test_request_headers_role_hive_all(mock_get_and_post):
     assert_headers_with_roles(post_kwargs["headers"], "hive=ALL")
 
     await req.get("URL")
-    _, get_kwargs = get.call_args
+    _, _get_kwargs = get.call_args
     assert_headers_with_roles(post_kwargs["headers"], "hive=ALL")
 
 
@@ -894,7 +894,7 @@ async def test_request_headers_role_admin(mock_get_and_post):
     assert_headers_with_roles(post_kwargs["headers"], roles)
 
     await req.get("URL")
-    _, get_kwargs = get.call_args
+    _, _get_kwargs = get.call_args
     assert_headers_with_roles(post_kwargs["headers"], roles)
 
 
@@ -916,11 +916,11 @@ async def test_request_headers_role_empty(mock_get_and_post):
     assert_headers_with_roles(post_kwargs["headers"], None)
 
     await req.get("URL")
-    _, get_kwargs = get.call_args
+    _, _get_kwargs = get.call_args
     assert_headers_with_roles(post_kwargs["headers"], None)
 
 
-def assert_headers_timezone(headers: Dict[str, str], timezone: str):
+def assert_headers_timezone(headers: dict[str, str], timezone: str):
     assert headers[constants.HEADER_TIMEZONE] == timezone
 
 
@@ -939,7 +939,7 @@ async def test_request_headers_with_timezone(mock_get_and_post):
     assert_headers_timezone(post_kwargs["headers"], "Europe/Brussels")
 
     await req.get("URL")
-    _, get_kwargs = get.call_args
+    _, _get_kwargs = get.call_args
     assert_headers_timezone(post_kwargs["headers"], "Europe/Brussels")
 
 
@@ -961,7 +961,7 @@ async def test_request_headers_without_timezone(mock_get_and_post):
     assert_headers_timezone(post_kwargs["headers"], localzone)
 
     await req.get("URL")
-    _, get_kwargs = get.call_args
+    _, _get_kwargs = get.call_args
     assert_headers_timezone(post_kwargs["headers"], localzone)
 
 

@@ -41,11 +41,7 @@ def assert_sqltype():
                 assert this_attr[0] == that_attr[0]
                 _assert_sqltype(this_attr[1], that_attr[1])
 
-        elif isinstance(this, TIME):
-            assert this.precision == that.precision
-            assert this.timezone == that.timezone
-
-        elif isinstance(this, TIMESTAMP):
+        elif isinstance(this, (TIME, TIMESTAMP)):
             assert this.precision == that.precision
             assert this.timezone == that.timezone
 

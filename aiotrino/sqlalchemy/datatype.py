@@ -13,7 +13,7 @@
 # limitations under the License.
 import re
 from collections.abc import Iterator
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy import func, util
@@ -22,7 +22,7 @@ from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 from sqlalchemy.types import JSON
 
 
-SQLType = Union[TypeEngine, Type[TypeEngine]]
+SQLType = TypeEngine | type[TypeEngine]
 
 
 class DOUBLE(sqltypes.Float):
@@ -49,8 +49,8 @@ class MAP(TypeEngine):
 class ROW(TypeEngine):
     __visit_name__ = "ROW"
 
-    def __init__(self, attr_types: List[Tuple[Optional[str], SQLType]]):
-        self.attr_types: List[Tuple[Optional[str], SQLType]] = []
+    def __init__(self, attr_types: list[tuple[str | None, SQLType]]):
+        self.attr_types: list[tuple[str | None, SQLType]] = []
         for attr_name, attr_type in attr_types:
             if isinstance(attr_type, type):
                 attr_type = attr_type()
@@ -65,7 +65,7 @@ class TIME(sqltypes.TIME):
     __visit_name__ = "TIME"
 
     def __init__(self, precision=None, timezone=False):
-        super(TIME, self).__init__(timezone=timezone)
+        super().__init__(timezone=timezone)
         self.precision = precision
 
 
@@ -73,7 +73,7 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
     __visit_name__ = "TIMESTAMP"
 
     def __init__(self, precision=None, timezone=False):
-        super(TIMESTAMP, self).__init__(timezone=timezone)
+        super().__init__(timezone=timezone)
         self.precision = precision
 
 
@@ -114,11 +114,11 @@ class _FormatTypeMixin:
 class _JSONFormatter:
     @staticmethod
     def format_index(value):
-        return '$["%s"]' % value
+        return f'$["{value}"]'
 
     @staticmethod
     def format_path(value):
-        return "$%s" % ("".join(['["%s"]' % elem for elem in value]))
+        return "${}".format("".join([f'["{elem}"]' for elem in value]))
 
 
 class JSONIndexType(_FormatTypeMixin, sqltypes.JSON.JSONIndexType):
@@ -255,13 +255,13 @@ def parse_sqltype(type_str: str) -> TypeEngine:
             dimensions = (item_type.dimensions or 1) + 1
             return sqltypes.ARRAY(item_type.item_type, dimensions=dimensions)
         return sqltypes.ARRAY(item_type)
-    elif type_name == "map":
+    if type_name == "map":
         key_type_str, value_type_str = aware_split(type_opts)
         key_type = parse_sqltype(key_type_str)
         value_type = parse_sqltype(value_type_str)
         return MAP(key_type, value_type)
-    elif type_name == "row":
-        attr_types: List[Tuple[Optional[str], SQLType]] = []
+    if type_name == "row":
+        attr_types: list[tuple[str | None, SQLType]] = []
         for attr in aware_split(type_opts):
             attr_name, attr_type_str = aware_split(attr.strip(), delimiter=" ", maxsplit=1)
             attr_name = unquote(attr_name)
@@ -275,7 +275,7 @@ def parse_sqltype(type_str: str) -> TypeEngine:
     type_class = _type_map[type_name]
     type_args = [int(o.strip()) for o in type_opts.split(",")] if type_opts else []
     if type_name in ("time", "timestamp"):
-        type_kwargs: Dict[str, Any] = {}
+        type_kwargs: dict[str, Any] = {}
         if type_str.endswith("with time zone"):
             type_kwargs["timezone"] = True
         if type_opts is not None:

@@ -131,7 +131,7 @@ def sample_get_response_data():
             },
         ],
         "taskDownloadUris": [],
-        "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",  # NOQA: E501
+        "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",
         "stats": {
             "nodes": 2,
             "processedBytes": 880,
@@ -180,7 +180,7 @@ def sample_get_response_data():
             "queuedSplits": 0,
             "wallTimeMillis": 36,
         },
-        "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
+        "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",
     }
 
 
@@ -201,9 +201,9 @@ def sample_get_response_data_none():
         "data": None,
         "columns": [],
         "taskDownloadUris": [],
-        "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",  # NOQA: E501
+        "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",
         "stats": {},
-        "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
+        "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",
     }
 
 
@@ -230,8 +230,8 @@ def sample_get_error_response_data():
                     "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
                     "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
                     "io.trino.sql.analyzer.StatementAnalyzer$Visitor.analyzeFrom(StatementAnalyzer.java:3182)",
-                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:1954)",  # noqa: E501
-                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:361)",  # noqa: E501
+                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:1954)",
+                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:361)",
                     "io.trino.sql.tree.QuerySpecification.accept(QuerySpecification.java:155)",
                     "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
                     "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
@@ -246,12 +246,12 @@ def sample_get_error_response_data():
                     "io.trino.sql.analyzer.Analyzer.analyze(Analyzer.java:83)",
                     "io.trino.execution.SqlQueryExecution.analyze(SqlQueryExecution.java:269)",
                     "io.trino.execution.SqlQueryExecution.\u003cinit\u003e(SqlQueryExecution.java:190)",
-                    "io.trino.execution.SqlQueryExecution$SqlQueryExecutionFactory.createQueryExecution(SqlQueryExecution.java:806)",  # NOQA: E501
-                    "io.trino.dispatcher.LocalDispatchQueryFactory.lambda$createDispatchQuery$0(LocalDispatchQueryFactory.java:132)",  # NOQA: E501
+                    "io.trino.execution.SqlQueryExecution$SqlQueryExecutionFactory.createQueryExecution(SqlQueryExecution.java:806)",
+                    "io.trino.dispatcher.LocalDispatchQueryFactory.lambda$createDispatchQuery$0(LocalDispatchQueryFactory.java:132)",
                     "io.trino.$gen.Trino_360____20210817_140756_2.call(Unknown Source)",
-                    "com.google.common.util.concurrent.TrustedListenableFutureTask$TrustedFutureInterruptibleTask.runInterruptibly(TrustedListenableFutureTask.java:125)",  # NOQA: E501
+                    "com.google.common.util.concurrent.TrustedListenableFutureTask$TrustedFutureInterruptibleTask.runInterruptibly(TrustedListenableFutureTask.java:125)",
                     "com.google.common.util.concurrent.InterruptibleTask.run(InterruptibleTask.java:69)",
-                    "com.google.common.util.concurrent.TrustedListenableFutureTask.run(TrustedListenableFutureTask.java:78)",  # NOQA: E501
+                    "com.google.common.util.concurrent.TrustedListenableFutureTask.run(TrustedListenableFutureTask.java:78)",
                     "java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)",
                     "java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)",
                     "java.base/java.lang.Thread.run(Thread.java:829)",

@@ -5,7 +5,7 @@ import base64
 import uuid
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Any, TypeVar
 from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
@@ -17,14 +17,14 @@ from aiotrino.types import POWERS_OF_TEN, NamedRowTuple, Time, Timestamp, Timest
 T = TypeVar("T")
 
 
-class ValueMapper(abc.ABC, Generic[T]):
+class ValueMapper[T](abc.ABC):
     @abc.abstractmethod
-    def map(self, value: Any) -> Optional[T]:
+    def map(self, value: Any) -> T | None:
         pass
 
 
 class BooleanValueMapper(ValueMapper[bool]):
-    def map(self, value: Any) -> Optional[bool]:
+    def map(self, value: Any) -> bool | None:
         if value is None:
             return None
         if isinstance(value, bool):
@@ -37,7 +37,7 @@ class BooleanValueMapper(ValueMapper[bool]):
 
 
 class IntegerValueMapper(ValueMapper[int]):
-    def map(self, value: Any) -> Optional[int]:
+    def map(self, value: Any) -> int | None:
         if value is None:
             return None
         if isinstance(value, int):
@@ -47,7 +47,7 @@ class IntegerValueMapper(ValueMapper[int]):
 
 
 class DoubleValueMapper(ValueMapper[float]):
-    def map(self, value: Any) -> Optional[float]:
+    def map(self, value: Any) -> float | None:
         if value is None:
             return None
         if value == "Infinity":
@@ -60,28 +60,28 @@ class DoubleValueMapper(ValueMapper[float]):
 
 
 class DecimalValueMapper(ValueMapper[Decimal]):
-    def map(self, value: Any) -> Optional[Decimal]:
+    def map(self, value: Any) -> Decimal | None:
         if value is None:
             return None
         return Decimal(value)
 
 
 class StringValueMapper(ValueMapper[str]):
-    def map(self, value: Any) -> Optional[str]:
+    def map(self, value: Any) -> str | None:
         if value is None:
             return None
         return str(value)
 
 
 class BinaryValueMapper(ValueMapper[bytes]):
-    def map(self, value: Any) -> Optional[bytes]:
+    def map(self, value: Any) -> bytes | None:
         if value is None:
             return None
         return base64.b64decode(value.encode("utf8"))
 
 
 class DateValueMapper(ValueMapper[date]):
-    def map(self, value: Any) -> Optional[date]:
+    def map(self, value: Any) -> date | None:
         if value is None:
             return None
         return date.fromisoformat(value)
@@ -92,7 +92,7 @@ class TimeValueMapper(ValueMapper[time]):
         self.time_default_size = 8  # size of 'HH:MM:SS'
         self.precision = precision
 
-    def map(self, value: Any) -> Optional[time]:
+    def map(self, value: Any) -> time | None:
         if value is None:
             return None
         whole_python_temporal_value = value[: self.time_default_size]
@@ -108,7 +108,7 @@ class TimeValueMapper(ValueMapper[time]):
 
 
 class TimeWithTimeZoneValueMapper(TimeValueMapper):
-    def map(self, value: Any) -> Optional[time]:
+    def map(self, value: Any) -> time | None:
         if value is None:
             return None
         whole_python_temporal_value = value[: self.time_default_size]
@@ -129,7 +129,7 @@ class TimestampValueMapper(ValueMapper[datetime]):
         self.datetime_default_size = 19  # size of 'YYYY-MM-DD HH:MM:SS' (the datetime string up to the seconds)
         self.precision = precision
 
-    def map(self, value: Any) -> Optional[datetime]:
+    def map(self, value: Any) -> datetime | None:
         if value is None:
             return None
         whole_python_temporal_value = value[: self.datetime_default_size]
@@ -145,7 +145,7 @@ class TimestampValueMapper(ValueMapper[datetime]):
 
 
 class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
-    def map(self, value: Any) -> Optional[datetime]:
+    def map(self, value: Any) -> datetime | None:
         if value is None:
             return None
         datetime_with_fraction, timezone_part = value.rsplit(" ", 1)
@@ -168,8 +168,7 @@ def _create_tzinfo(timezone_str: str) -> tzinfo:
         if timezone_str.startswith("-"):
             return timezone(-timedelta(hours=int(hours), minutes=int(minutes)))
         return timezone(timedelta(hours=int(hours), minutes=int(minutes)))
-    else:
-        return ZoneInfo(timezone_str)
+    return ZoneInfo(timezone_str)
 
 
 def _fraction_to_decimal(fractional_str: str) -> Decimal:
@@ -177,7 +176,7 @@ def _fraction_to_decimal(fractional_str: str) -> Decimal:
 
 
 class IntervalYearToMonthMapper(ValueMapper[relativedelta]):
-    def map(self, value: Any) -> Optional[relativedelta]:
+    def map(self, value: Any) -> relativedelta | None:
         if value is None:
             return None
         is_negative = value[0] == "-"
@@ -189,7 +188,7 @@ class IntervalYearToMonthMapper(ValueMapper[relativedelta]):
 
 
 class IntervalDayToSecondMapper(ValueMapper[timedelta]):
-    def map(self, value: Any) -> Optional[timedelta]:
+    def map(self, value: Any) -> timedelta | None:
         if value is None:
             return None
         is_negative = value[0] == "-"
@@ -215,48 +214,48 @@ class IntervalDayToSecondMapper(ValueMapper[timedelta]):
             raise exceptions.TrinoDataError(error_str) from e
 
 
-class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
+class ArrayValueMapper(ValueMapper[list[Any | None]]):
     def __init__(self, mapper: ValueMapper[Any]):
         self.mapper = mapper
 
-    def map(self, value: Optional[List[Any]]) -> Optional[List[Any]]:
+    def map(self, value: list[Any] | None) -> list[Any] | None:
         if value is None:
             return None
         return [self.mapper.map(v) for v in value]
 
 
-class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
+class MapValueMapper(ValueMapper[dict[Any, Any | None]]):
     def __init__(self, key_mapper: ValueMapper[Any], value_mapper: ValueMapper[Any]):
         self.key_mapper = key_mapper
         self.value_mapper = value_mapper
 
-    def map(self, value: Any) -> Optional[Dict[Any, Optional[Any]]]:
+    def map(self, value: Any) -> dict[Any, Any | None] | None:
         if value is None:
             return None
         return {self.key_mapper.map(k): self.value_mapper.map(v) for k, v in value.items()}
 
 
-class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
-    def __init__(self, mappers: List[ValueMapper[Any]], names: List[Optional[str]], types: List[str]):
+class RowValueMapper(ValueMapper[tuple[Any | None, ...]]):
+    def __init__(self, mappers: list[ValueMapper[Any]], names: list[str | None], types: list[str]):
         self.mappers = mappers
         self.names = names
         self.types = types
 
-    def map(self, value: Optional[List[Any]]) -> Optional[Tuple[Optional[Any], ...]]:
+    def map(self, value: list[Any] | None) -> tuple[Any | None, ...] | None:
         if value is None:
             return None
         return NamedRowTuple([self.mappers[i].map(v) for i, v in enumerate(value)], self.names, self.types)
 
 
 class UuidValueMapper(ValueMapper[uuid.UUID]):
-    def map(self, value: Any) -> Optional[uuid.UUID]:
+    def map(self, value: Any) -> uuid.UUID | None:
         if value is None:
             return None
         return uuid.UUID(value)
 
 
 class NoOpValueMapper(ValueMapper[Any]):
-    def map(self, value: Any) -> Optional[Any]:
+    def map(self, value: Any) -> Any | None:
         return value
 
 
@@ -266,7 +265,7 @@ class NoOpRowMapper:
     Used when legacy_primitive_types is False.
     """
 
-    def map(self, rows: List[List[Any]]) -> List[List[Any]]:
+    def map(self, rows: list[list[Any]]) -> list[list[Any]]:
         return rows
 
 
@@ -279,14 +278,14 @@ class RowMapperFactory:
 
     NO_OP_ROW_MAPPER = NoOpRowMapper()
 
-    def create(self, columns: List[Any], legacy_primitive_types: bool) -> RowMapper | NoOpRowMapper:
+    def create(self, columns: list[Any], legacy_primitive_types: bool) -> RowMapper | NoOpRowMapper:
         assert columns is not None
 
         if not legacy_primitive_types:
             return RowMapper([self._create_value_mapper(column["typeSignature"]) for column in columns])
         return RowMapperFactory.NO_OP_ROW_MAPPER
 
-    def _create_value_mapper(self, column: Dict[str, Any]) -> ValueMapper[Any]:
+    def _create_value_mapper(self, column: dict[str, Any]) -> ValueMapper[Any]:
         col_type = column["rawType"]
 
         # primitive types
@@ -328,9 +327,9 @@ class RowMapperFactory:
             value_mapper = self._create_value_mapper(column["arguments"][1]["value"])
             return MapValueMapper(key_mapper, value_mapper)
         if col_type == "row":
-            mappers: List[ValueMapper[Any]] = []
-            names: List[Optional[str]] = []
-            types: List[str] = []
+            mappers: list[ValueMapper[Any]] = []
+            names: list[str | None] = []
+            types: list[str] = []
             for arg in column["arguments"]:
                 mappers.append(self._create_value_mapper(arg["value"]["typeSignature"]))
                 names.append(arg["value"]["fieldName"]["name"] if "fieldName" in arg["value"] else None)
@@ -342,7 +341,7 @@ class RowMapperFactory:
             return UuidValueMapper()
         return NoOpValueMapper()
 
-    def _get_precision(self, column: Dict[str, Any]) -> int:
+    def _get_precision(self, column: dict[str, Any]) -> int:
         args = column["arguments"]
         if len(args) == 0:
             return 3
@@ -354,18 +353,18 @@ class RowMapper:
     Maps a row of data given a list of mapping functions
     """
 
-    def __init__(self, columns: List[ValueMapper[Any]]):
+    def __init__(self, columns: list[ValueMapper[Any]]):
         self.columns = columns
 
-    def map(self, rows: List[List[Any]]) -> List[List[Any]]:
+    def map(self, rows: list[list[Any]]) -> list[list[Any]]:
         if len(self.columns) == 0:
             return rows
         return [self._map_row(row) for row in rows]
 
-    def _map_row(self, row: List[Any]) -> List[Any]:
+    def _map_row(self, row: list[Any]) -> list[Any]:
         return [self._map_value(value, self.columns[index]) for index, value in enumerate(row)]
 
-    def _map_value(self, value: Any, value_mapper: ValueMapper[T]) -> Optional[T]:
+    def _map_value(self, value: Any, value_mapper: ValueMapper[T]) -> T | None:
         try:
             return value_mapper.map(value)
         except ValueError as e:

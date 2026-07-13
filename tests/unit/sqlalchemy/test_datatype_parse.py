@@ -9,6 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import contextlib
+
 import pytest
 from sqlalchemy.exc import UnsupportedCompilationError
 from sqlalchemy.sql.sqltypes import ARRAY, CHAR, DATE, DECIMAL, INTEGER, VARCHAR
@@ -27,11 +29,9 @@ def test_parse_simple_type(type_str: str, sql_type: TypeEngine, assert_sqltype):
     actual_type = datatype.parse_sqltype(type_str)
     if not isinstance(actual_type, type):
         actual_type = type(actual_type)
-    try:
+    # TODO: properly test the types supported per sqlalchemy version
+    with contextlib.suppress(UnsupportedCompilationError):
         assert_sqltype(actual_type, sql_type)
-    except UnsupportedCompilationError:
-        # TODO: properly test the types supported per sqlalchemy version
-        pass
 
 
 parse_cases_testcases = {

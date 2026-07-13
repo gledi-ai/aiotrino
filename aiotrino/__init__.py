@@ -15,11 +15,11 @@ from ._version import __version__
 
 
 __all__ = [
+    "__version__",
     "auth",
     "client",
     "constants",
     "dbapi",
     "exceptions",
     "logging",
-    "__version__",
 ]

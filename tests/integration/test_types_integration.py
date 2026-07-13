@@ -574,10 +574,8 @@ def create_timezone(timezone_str: str) -> tzinfo:
         hours, minutes = map(int, re.findall(r"\d{2}", timezone_str))
         if timezone_str[:1] == "+":
             return timezone(timedelta(hours=hours, minutes=minutes))
-        else:
-            return timezone(-timedelta(hours=hours, minutes=minutes))
-    else:
-        return ZoneInfo(timezone_str)
+        return timezone(-timedelta(hours=hours, minutes=minutes))
+    return ZoneInfo(timezone_str)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -782,7 +780,7 @@ async def test_map(trino_connection):
         )
         .add_field(
             sql="MAP("
-            "ARRAY[TIMESTAMP '1970-01-01 01:01:01 +05:30', TIMESTAMP '2023-01-01 23:59:59 America/Los_Angeles'], "  # noqa: E501
+            "ARRAY[TIMESTAMP '1970-01-01 01:01:01 +05:30', TIMESTAMP '2023-01-01 23:59:59 America/Los_Angeles'], "
             "ARRAY[TIMESTAMP '1970-01-01 01:01:01 +05:30', null])",
             python={
                 datetime_1.replace(tzinfo=tz_india): datetime_1.replace(tzinfo=tz_india),

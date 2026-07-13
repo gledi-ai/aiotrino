@@ -18,7 +18,7 @@ import time
 from collections import deque
 from collections.abc import Mapping, Sequence
 from textwrap import dedent
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 from urllib.parse import unquote_plus
 
 from sqlalchemy import exc, pool, sql, util
@@ -60,7 +60,7 @@ class AsyncAdapt_aiotrino_cursor(Cursor):
         super().__init__(adapt_connection._connection, request, legacy_primitive_types=legacy_primitive_types)
         self._adapt_connection = adapt_connection
         self.await_ = adapt_connection.await_
-        self._soft_closed_memoized: Dict[str, Any] = {}
+        self._soft_closed_memoized: dict[str, Any] = {}
 
         if not self.server_side:
             self._rows = deque()
@@ -158,8 +158,7 @@ class AsyncAdapt_aiotrino_cursor(Cursor):
     def fetchone(self):
         if self._rows:
             return self._rows.popleft()
-        else:
-            return None
+        return None
 
     def fetchmany(self, size=None):
         if size is None:
@@ -230,7 +229,7 @@ class AsyncAdapt_aiotrino_connection(AdaptedConnection):
 
     def __init__(
         self,
-        dbapi: "AsyncAdapt_aiotrino_dbapi",
+        dbapi: AsyncAdapt_aiotrino_dbapi,
         connection: aiotrino_dbapi.Connection,
     ):
         self.dbapi = dbapi
@@ -299,14 +298,10 @@ class AsyncAdapt_aiotrino_connection(AdaptedConnection):
             self._started = True
 
     async def build_cursor(self, server_side: bool = False) -> AsyncAdapt_aiotrino_cursor:
-        if self.isolation_level != IsolationLevel.AUTOCOMMIT:
-            if self._transaction is None:
-                await self._start_transaction()
+        if self.isolation_level != IsolationLevel.AUTOCOMMIT and self._transaction is None:
+            await self._start_transaction()
 
-        if self._transaction is not None:
-            request = self._transaction.request
-        else:
-            request = self._connection._create_request()
+        request = self._transaction.request if self._transaction is not None else self._connection._create_request()
 
         cursor_cls = AsyncAdapt_aiotrino_ss_cursor if server_side else AsyncAdapt_aiotrino_cursor
 
@@ -372,12 +367,7 @@ class AsyncAdapt_aiotrino_connection(AdaptedConnection):
                 # try to gracefully close; see #10717
                 # timeout added in asyncpg 0.14.0 December 2017
                 self.await_(asyncio.shield(self._connection.close(timeout=2)))
-            except (
-                asyncio.TimeoutError,
-                asyncio.CancelledError,
-                OSError,
-                self.dbapi.aiotrino.Error,
-            ):
+            except (TimeoutError, asyncio.CancelledError, OSError, self.dbapi.aiotrino.Error):
                 # in the case where we are recycling an old connection
                 # that may have already been disconnected, close() will
                 # fail with the above timeout.  in this case, terminate
@@ -414,11 +404,10 @@ class AsyncAdapt_aiotrino_dbapi:
                 self,
                 creator_fn(*arg, **kw),
             )
-        else:
-            return AsyncAdapt_aiotrino_connection(
-                self,
-                creator_fn(*arg, **kw),
-            )
+        return AsyncAdapt_aiotrino_connection(
+            self,
+            creator_fn(*arg, **kw),
+        )
 
     # PEP-249 compliance
     class Error(Exception):
@@ -533,12 +522,11 @@ class AIOTrinoDialect(DefaultDialect):
 
         if util.asbool(async_fallback):
             return pool.FallbackAsyncAdaptedQueuePool
-        else:
-            return pool.AsyncAdaptedQueuePool
+        return pool.AsyncAdaptedQueuePool
 
-    def create_connect_args(self, url: URL) -> Tuple[Sequence[Any], Mapping[str, Any]]:
+    def create_connect_args(self, url: URL) -> tuple[Sequence[Any], Mapping[str, Any]]:
         args: Sequence[Any] = []
-        kwargs: Dict[str, Any] = {"host": url.host}
+        kwargs: dict[str, Any] = {"host": url.host}
 
         if url.port:
             kwargs["port"] = url.port
@@ -604,12 +592,16 @@ class AIOTrinoDialect(DefaultDialect):
 
         return args, kwargs
 
-    def get_columns(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def get_columns(
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> list[dict[str, Any]]:
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
         return self._get_columns(connection, table_name, schema, **kw)
 
-    def _get_columns(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def _get_columns(
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> list[dict[str, Any]]:
         schema = schema or self._get_default_schema_name(connection)
         query = dedent(
             """
@@ -637,8 +629,8 @@ class AIOTrinoDialect(DefaultDialect):
         return columns
 
     def _get_partitions(
-        self, connection: Connection, table_name: str, schema: str = None
-    ) -> List[Dict[str, List[Any]]]:
+        self, connection: Connection, table_name: str, schema: str | None = None
+    ) -> list[dict[str, list[Any]]]:
         schema = schema or self._get_default_schema_name(connection)
         query = dedent(
             f"""
@@ -646,24 +638,25 @@ class AIOTrinoDialect(DefaultDialect):
         """
         ).strip()
         res = connection.execute(sql.text(query))
-        partition_names = [desc[0] for desc in await_only(res.cursor.get_description())]
-        return partition_names
+        return [desc[0] for desc in await_only(res.cursor.get_description())]
 
-    def get_pk_constraint(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
+    def get_pk_constraint(
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> dict[str, Any]:
         """Trino has no support for primary keys. Returns a dummy"""
         return {"name": None, "constrained_columns": []}
 
-    def get_primary_keys(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[str]:
+    def get_primary_keys(self, connection: Connection, table_name: str, schema: str | None = None, **kw) -> list[str]:
         pk = self.get_pk_constraint(connection, table_name, schema)
         return pk.get("constrained_columns")  # type: ignore
 
     def get_foreign_keys(
-        self, connection: Connection, table_name: str, schema: str = None, **kw
-    ) -> List[Dict[str, Any]]:
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> list[dict[str, Any]]:
         """Trino has no support for foreign keys. Returns an empty list."""
         return []
 
-    def get_catalog_names(self, connection: Connection, **kw) -> List[str]:
+    def get_catalog_names(self, connection: Connection, **kw) -> list[str]:
         query = dedent(
             """
             SELECT "table_cat"
@@ -673,7 +666,7 @@ class AIOTrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query))
         return [row.table_cat for row in res]
 
-    def get_schema_names(self, connection: Connection, **kw) -> List[str]:
+    def get_schema_names(self, connection: Connection, **kw) -> list[str]:
         query = dedent(
             """
             SELECT "schema_name"
@@ -683,7 +676,7 @@ class AIOTrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query))
         return [row.schema_name for row in res]
 
-    def get_table_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_table_names(self, connection: Connection, schema: str | None = None, **kw) -> list[str]:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             raise exc.NoSuchTableError("schema is required")
@@ -698,11 +691,11 @@ class AIOTrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema})
         return [row.table_name for row in res]
 
-    def get_temp_table_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_temp_table_names(self, connection: Connection, schema: str | None = None, **kw) -> list[str]:
         """Trino has no support for temporary tables. Returns an empty list."""
         return []
 
-    def get_view_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_view_names(self, connection: Connection, schema: str | None = None, **kw) -> list[str]:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             raise exc.NoSuchTableError("schema is required")
@@ -719,11 +712,11 @@ class AIOTrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema})
         return [row.table_name for row in res]
 
-    def get_temp_view_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_temp_view_names(self, connection: Connection, schema: str | None = None, **kw) -> list[str]:
         """Trino has no support for temporary views. Returns an empty list."""
         return []
 
-    def get_view_definition(self, connection: Connection, view_name: str, schema: str = None, **kw) -> str:
+    def get_view_definition(self, connection: Connection, view_name: str, schema: str | None = None, **kw) -> str:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             raise exc.NoSuchTableError("schema is required")
@@ -738,7 +731,9 @@ class AIOTrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema, "view": view_name})
         return res.scalar()
 
-    def get_indexes(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def get_indexes(
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> list[dict[str, Any]]:
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
 
@@ -753,23 +748,25 @@ class AIOTrinoDialect(DefaultDialect):
         partition_index = {"name": "partition", "column_names": partitioned_columns, "unique": False}
         return [partition_index]
 
-    def get_sequence_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_sequence_names(self, connection: Connection, schema: str | None = None, **kw) -> list[str]:
         """Trino has no support for sequences. Returns an empty list."""
         return []
 
     def get_unique_constraints(
-        self, connection: Connection, table_name: str, schema: str = None, **kw
-    ) -> List[Dict[str, Any]]:
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> list[dict[str, Any]]:
         """Trino has no support for unique constraints. Returns an empty list."""
         return []
 
     def get_check_constraints(
-        self, connection: Connection, table_name: str, schema: str = None, **kw
-    ) -> List[Dict[str, Any]]:
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> list[dict[str, Any]]:
         """Trino has no support for check constraints. Returns an empty list."""
         return []
 
-    def get_table_comment(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
+    def get_table_comment(
+        self, connection: Connection, table_name: str, schema: str | None = None, **kw
+    ) -> dict[str, Any]:
         catalog_name = self._get_default_catalog_name(connection)
         if catalog_name is None:
             raise exc.NoSuchTableError("catalog is required in connection")
@@ -806,7 +803,7 @@ class AIOTrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema})
         return res.first() is not None
 
-    def has_table(self, connection: Connection, table_name: str, schema: str = None, **kw) -> bool:
+    def has_table(self, connection: Connection, table_name: str, schema: str | None = None, **kw) -> bool:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             return False
@@ -821,7 +818,7 @@ class AIOTrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema, "table": table_name})
         return res.first() is not None
 
-    def has_sequence(self, connection: Connection, sequence_name: str, schema: str = None, **kw) -> bool:
+    def has_sequence(self, connection: Connection, sequence_name: str, schema: str | None = None, **kw) -> bool:
         """Trino has no support for sequence. Returns False indicate that given sequence does not exists."""
         return False
 
@@ -841,16 +838,16 @@ class AIOTrinoDialect(DefaultDialect):
     #     # Make server_version_info lazy in order to only make HTTP calls if user explicitly requests it.
     #     cls.server_version_info = property(get_server_version_info, lambda instance, value: None)
 
-    def _raw_connection(self, connection: Union[Engine, Connection]) -> aiotrino_dbapi.Connection:
+    def _raw_connection(self, connection: Engine | Connection) -> aiotrino_dbapi.Connection:
         if isinstance(connection, Engine):
             return connection.raw_connection()
         return connection.connection
 
-    def _get_default_catalog_name(self, connection: Connection) -> Optional[str]:
+    def _get_default_catalog_name(self, connection: Connection) -> str | None:
         dbapi_connection: AsyncAdapt_aiotrino_connection = self._raw_connection(connection)
         return dbapi_connection._connection.catalog
 
-    def _get_default_schema_name(self, connection: Connection) -> Optional[str]:
+    def _get_default_schema_name(self, connection: Connection) -> str | None:
         dbapi_connection: AsyncAdapt_aiotrino_connection = self._raw_connection(connection)
         return dbapi_connection._connection.schema
 
@@ -863,7 +860,7 @@ class AIOTrinoDialect(DefaultDialect):
     def get_default_isolation_level(self, dbapi_conn: AsyncAdapt_aiotrino_connection) -> str:
         return aiotrino_dbapi.IsolationLevel.AUTOCOMMIT.name
 
-    def _get_full_table(self, table_name: str, schema: str = None, quote: bool = True) -> str:
+    def _get_full_table(self, table_name: str, schema: str | None = None, quote: bool = True) -> str:
         table_part = self.identifier_preparer.quote_identifier(table_name) if quote else table_name
         if schema:
             schema_part = self.identifier_preparer.quote_identifier(schema) if quote else schema

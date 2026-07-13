@@ -108,7 +108,7 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
         return text
 
     def visit_table(self, table, asfrom=False, iscrud=False, ashint=False, fromhints=None, use_schema=True, **kwargs):
-        sql = super(TrinoSQLCompiler, self).visit_table(table, asfrom, iscrud, ashint, fromhints, use_schema, **kwargs)
+        sql = super().visit_table(table, asfrom, iscrud, ashint, fromhints, use_schema, **kwargs)
         return self.add_catalog(sql, table)
 
     @staticmethod
@@ -120,8 +120,7 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
             return sql
 
         catalog = table.dialect_options["aiotrino"]["catalog"]
-        sql = f'"{catalog}".{sql}'
-        return sql
+        return f'"{catalog}".{sql}'
 
     def visit_json_getitem_op_binary(self, binary, operator, **kw):
         return self._render_json_extract_from_binary(binary, operator, **kw)
@@ -131,10 +130,8 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
     def _render_json_extract_from_binary(self, binary, operator, **kw):
         if binary.type._type_affinity is sqltypes.JSON:
-            return "JSON_EXTRACT(%s, %s)" % (
-                self.process(binary.left, **kw),
-                self.process(binary.right, **kw),
-            )
+            return f"JSON_EXTRACT({self.process(binary.left, **kw)}, {self.process(binary.right, **kw)})"
+        return None
 
     class GenericIgnoreNulls(GenericFunction):
         ignore_nulls = False
@@ -178,15 +175,15 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 class TrinoDDLCompiler(compiler.DDLCompiler):
     def visit_foreign_key_constraint(self, constraint, **kw):
         SAWarn("Trino does not support FOREIGN KEY constraints. Constraint will be ignored.")
-        return None
+        return
 
     def visit_primary_key_constraint(self, constraint, **kw):
         SAWarn("Trino does not support PRIMARY KEY constraints. Constraint will be ignored.")
-        return None
+        return
 
     def visit_unique_constraint(self, constraint, **kw):
         SAWarn("Trino does not support UNIQUE constraints. Constraint will be ignored.")
-        return None
+        return
 
 
 class TrinoTypeCompiler(compiler.GenericTypeCompiler):
@@ -194,10 +191,9 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
         precision = type_.precision or 32
         if 0 <= precision <= 32:
             return self.visit_REAL(type_, **kw)
-        elif 32 < precision <= 64:
+        if 32 < precision <= 64:
             return self.visit_DOUBLE(type_, **kw)
-        else:
-            raise ValueError(f"type.precision must be in range [0, 64], got {type_.precision}")
+        raise ValueError(f"type.precision must be in range [0, 64], got {type_.precision}")
 
     def visit_DOUBLE(self, type_, **kw):
         return "DOUBLE"
@@ -273,5 +269,5 @@ class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS
 
     def format_table(self, table, use_schema=True, name=None):
-        result = super(TrinoIdentifierPreparer, self).format_table(table, use_schema, name)
+        result = super().format_table(table, use_schema, name)
         return TrinoSQLCompiler.add_catalog(result, table)

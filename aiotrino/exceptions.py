@@ -15,7 +15,7 @@ This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import aiotrino.logging
 
@@ -78,28 +78,28 @@ class TrinoDataError(NotSupportedError):
 
 
 class TrinoQueryError(Error):
-    def __init__(self, error: Dict[str, Any], query_id: Optional[str] = None) -> None:
+    def __init__(self, error: dict[str, Any], query_id: str | None = None) -> None:
         self._error = error
         self._query_id = query_id
 
     @property
-    def error_code(self) -> Optional[int]:
+    def error_code(self) -> int | None:
         return self._error.get("errorCode", None)
 
     @property
-    def error_name(self) -> Optional[str]:
+    def error_name(self) -> str | None:
         return self._error.get("errorName", None)
 
     @property
-    def error_type(self) -> Optional[str]:
+    def error_type(self) -> str | None:
         return self._error.get("errorType", None)
 
     @property
-    def error_exception(self) -> Optional[str]:
+    def error_exception(self) -> str | None:
         return self.failure_info.get("type", None) if self.failure_info else None
 
     @property
-    def failure_info(self) -> Optional[Dict[str, Any]]:
+    def failure_info(self) -> dict[str, Any] | None:
         return self._error.get("failureInfo", None)
 
     @property
@@ -107,7 +107,7 @@ class TrinoQueryError(Error):
         return self._error.get("message", "Trino did not return an error message")
 
     @property
-    def error_location(self) -> Optional[Tuple[int, int]]:
+    def error_location(self) -> tuple[int, int] | None:
         location = self._error.get("errorLocation", None)
         if location is None:
             return None
@@ -118,16 +118,13 @@ class TrinoQueryError(Error):
         return (line_number, column_number)
 
     @property
-    def query_id(self) -> Optional[str]:
+    def query_id(self) -> str | None:
         return self._query_id
 
     def __repr__(self) -> str:
-        return '{}(type={}, name={}, message="{}", query_id={})'.format(
-            self.__class__.__name__,
-            self.error_type,
-            self.error_name,
-            self.message,
-            self.query_id,
+        return (
+            f"{self.__class__.__name__}(type={self.error_type}, name={self.error_name}, "
+            f'message="{self.message}", query_id={self.query_id})'
         )
 
     def __str__(self) -> str:

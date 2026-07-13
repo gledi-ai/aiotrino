@@ -53,7 +53,7 @@ class PostStatementCallback:
         authorization = request.headers.get("Authorization")
         if authorization and authorization.replace("Bearer ", "") in self.tokens:
             return [200, response_headers, json.dumps(self.sample_post_response_data)]
-        elif self.redirect_server is None and self.token_server is not None:
+        if self.redirect_server is None and self.token_server is not None:
             return [
                 401,
                 {

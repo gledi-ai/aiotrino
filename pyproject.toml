@@ -102,6 +102,10 @@ select = [
   "B",   # flake8-bugbear
   "LOG", # flake8-logging
   "G",   # flake8-logging-format
+  "UP",  # pyupgrade
+  "SIM", # flake8-simplify
+  "RET", # flake8-return
+  "RUF", # ruff-specific rules
 ]
 ignore = [
   "B008", # do not perform function calls in argument defaults

@@ -27,7 +27,7 @@ from collections import OrderedDict
 from decimal import Decimal
 from threading import Lock
 from time import time
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
@@ -55,24 +55,24 @@ from aiotrino.utils import aiter, anext
 
 
 __all__ = [
-    # https://www.python.org/dev/peps/pep-0249/#globals
-    "apilevel",
-    "threadsafety",
-    "paramstyle",
-    "connect",
     "Connection",
     "Cursor",
+    "DataError",
+    "DatabaseError",
+    "Error",
+    "IntegrityError",
+    "InterfaceError",
+    "InternalError",
+    "NotSupportedError",
+    "OperationalError",
+    "ProgrammingError",
     # https://www.python.org/dev/peps/pep-0249/#exceptions
     "Warning",
-    "Error",
-    "InterfaceError",
-    "DatabaseError",
-    "DataError",
-    "OperationalError",
-    "IntegrityError",
-    "InternalError",
-    "ProgrammingError",
-    "NotSupportedError",
+    # https://www.python.org/dev/peps/pep-0249/#globals
+    "apilevel",
+    "connect",
+    "paramstyle",
+    "threadsafety",
 ]
 
 
@@ -132,7 +132,7 @@ def connect(*args, **kwargs):
 _USE_DEFAULT_ENCODING = object()
 
 
-def _resolve_http_scheme(parsed_host, port: Optional[int], http_scheme: Optional[str]) -> str:
+def _resolve_http_scheme(parsed_host, port: int | None, http_scheme: str | None) -> str:
     if parsed_host.scheme:
         return parsed_host.scheme
     if http_scheme is not None:
@@ -143,7 +143,7 @@ def _resolve_http_scheme(parsed_host, port: Optional[int], http_scheme: Optional
     return constants.HTTP
 
 
-def _resolve_port(parsed_host, port: Optional[int], http_scheme: str) -> int:
+def _resolve_port(parsed_host, port: int | None, http_scheme: str) -> int:
     if parsed_host.port is not None:
         return parsed_host.port
     if port is not None:
@@ -153,7 +153,7 @@ def _resolve_port(parsed_host, port: Optional[int], http_scheme: str) -> int:
     return constants.DEFAULT_PORT
 
 
-class Connection(object):
+class Connection:
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
     statement, can also be cancelled. Transactions are not supported by this
@@ -164,27 +164,27 @@ class Connection(object):
     def __init__(
         self,
         host: str,
-        port: Optional[int] = None,
-        user: Optional[str] = None,
+        port: int | None = None,
+        user: str | None = None,
         source: str = constants.DEFAULT_SOURCE,
         catalog: str = constants.DEFAULT_CATALOG,
         schema: str = constants.DEFAULT_SCHEMA,
-        session_properties: Optional[dict[str, str]] = None,
-        http_headers: Optional[dict[str, str]] = None,
-        http_scheme: Optional[str] = None,
-        auth: Optional[Any] = constants.DEFAULT_AUTH,
-        extra_credential: Optional[list[tuple[str, str]]] = None,
+        session_properties: dict[str, str] | None = None,
+        http_headers: dict[str, str] | None = None,
+        http_scheme: str | None = None,
+        auth: Any | None = constants.DEFAULT_AUTH,
+        extra_credential: list[tuple[str, str]] | None = None,
         max_attempts: int = constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout: float = constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level: IsolationLevel = IsolationLevel.AUTOCOMMIT,
         verify: bool = True,
-        http_session: Optional[aiohttp.ClientSession] = None,
-        client_tags: Optional[list[str]] = None,
+        http_session: aiohttp.ClientSession | None = None,
+        client_tags: list[str] | None = None,
         legacy_primitive_types: bool = False,
-        legacy_prepared_statements: Optional[Any] = None,
-        roles: Optional[Union[dict[str, str], str]] = None,
-        timezone: Optional[str] = None,
-        encoding: Union[str, list[str]] = _USE_DEFAULT_ENCODING,
+        legacy_prepared_statements: Any | None = None,
+        roles: dict[str, str] | str | None = None,
+        timezone: str | None = None,
+        encoding: str | list[str] = _USE_DEFAULT_ENCODING,
     ):
         # Automatically assign http_schema, port based on hostname
         parsed_host = urlparse(host, allow_fragments=False)
@@ -298,16 +298,12 @@ class Connection(object):
             request_timeout=self.request_timeout,
         )
 
-    async def cursor(self, cursor_style: str = "row", legacy_primitive_types: bool = None) -> "Cursor":
+    async def cursor(self, cursor_style: str = "row", legacy_primitive_types: bool | None = None) -> Cursor:
         """Return a new :py:class:`Cursor` object using the connection."""
-        if self.isolation_level != IsolationLevel.AUTOCOMMIT:
-            if self.transaction is None:
-                await self.start_transaction()
+        if self.isolation_level != IsolationLevel.AUTOCOMMIT and self.transaction is None:
+            await self.start_transaction()
 
-        if self.transaction is not None:
-            request = self.transaction.request
-        else:
-            request = self._create_request()
+        request = self.transaction.request if self.transaction is not None else self._create_request()
 
         cursor_class = {
             # Add any custom Cursor classes here
@@ -387,7 +383,7 @@ class ColumnDescription(NamedTuple):
         )
 
 
-class Cursor(object):
+class Cursor:
     """Database cursor.
 
     Cursors are not isolated, i.e., any changes done to the database by a
@@ -402,7 +398,7 @@ class Cursor(object):
         legacy_primitive_types: bool = False,
     ):
         if not isinstance(connection, Connection):
-            raise ValueError("connection must be a Connection object: {}".format(type(connection)))
+            raise ValueError(f"connection must be a Connection object: {type(connection)}")
         self._connection = connection
         self._request = request
 
@@ -543,7 +539,7 @@ class Cursor(object):
 
         if isinstance(param, int):
             # TODO represent numbers exceeding 64-bit (BIGINT) as DECIMAL
-            return "%d" % param
+            return f"{param:d}"
 
         if isinstance(param, float):
             if param == float("+inf"):
@@ -552,62 +548,62 @@ class Cursor(object):
                 return "-infinity()"
             if math.isnan(param):
                 return "nan()"
-            return "DOUBLE '%s'" % param
+            return f"DOUBLE '{param}'"
 
         if isinstance(param, str):
-            return "'%s'" % param.replace("'", "''")
+            return "'{}'".format(param.replace("'", "''"))
 
         if isinstance(param, (bytes, bytearray)):
-            return "X'%s'" % param.hex()
+            return f"X'{param.hex()}'"
 
         if isinstance(param, datetime.datetime) and param.tzinfo is None:
             datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
-            return "TIMESTAMP '%s'" % datetime_str
+            return f"TIMESTAMP '{datetime_str}'"
 
         if isinstance(param, datetime.datetime) and param.tzinfo is not None:
             datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
             # named timezones
             if isinstance(param.tzinfo, ZoneInfo):
-                return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.key)
+                return f"TIMESTAMP '{datetime_str} {param.tzinfo.key}'"
             # offset-based timezones
-            return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.tzname(param))
+            return f"TIMESTAMP '{datetime_str} {param.tzinfo.tzname(param)}'"
 
         # We can't calculate the offset for a time without a point in time
         if isinstance(param, datetime.time) and param.tzinfo is None:
             time_str = param.strftime("%H:%M:%S.%f")
-            return "TIME '%s'" % time_str
+            return f"TIME '{time_str}'"
 
         if isinstance(param, datetime.time) and param.tzinfo is not None:
             time_str = param.strftime("%H:%M:%S.%f")
             # named timezones
             if isinstance(param.tzinfo, ZoneInfo):
                 utc_offset = datetime.datetime.now(tz=param.tzinfo).strftime("%z")
-                return "TIME '%s %s:%s'" % (time_str, utc_offset[:3], utc_offset[3:])
+                return f"TIME '{time_str} {utc_offset[:3]}:{utc_offset[3:]}'"
             # offset-based timezones
-            return "TIME '%s %s'" % (time_str, param.strftime("%Z")[3:])
+            return "TIME '{} {}'".format(time_str, param.strftime("%Z")[3:])
 
         if isinstance(param, datetime.date):
             date_str = param.strftime("%Y-%m-%d")
-            return "DATE '%s'" % date_str
+            return f"DATE '{date_str}'"
 
         if isinstance(param, list):
-            return "ARRAY[%s]" % ",".join(map(self._format_prepared_param, param))
+            return "ARRAY[{}]".format(",".join(map(self._format_prepared_param, param)))
 
         if isinstance(param, tuple):
-            return "ROW(%s)" % ",".join(map(self._format_prepared_param, param))
+            return "ROW({})".format(",".join(map(self._format_prepared_param, param)))
 
         if isinstance(param, dict):
             keys = list(param.keys())
             values = [param[key] for key in keys]
-            return "MAP({}, {})".format(self._format_prepared_param(keys), self._format_prepared_param(values))
+            return f"MAP({self._format_prepared_param(keys)}, {self._format_prepared_param(values)})"
 
         if isinstance(param, uuid.UUID):
-            return "UUID '%s'" % param
+            return f"UUID '{param}'"
 
         if isinstance(param, Decimal):
-            return "DECIMAL '%s'" % format(param, "f")
+            return "DECIMAL '{}'".format(format(param, "f"))
 
-        raise aiotrino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
+        raise aiotrino.exceptions.NotSupportedError(f"Query parameter of type '{type(param)}' is not supported.")
 
     async def _deallocate_prepared_statement(self, statement_name: str) -> None:
         sql = "DEALLOCATE PREPARE " + statement_name
@@ -678,7 +674,7 @@ class Cursor(object):
             await self.execute(operation)
         return self
 
-    async def fetchone(self) -> Optional[list[Any]]:
+    async def fetchone(self) -> list[Any] | None:
         """
 
         PEP-0249: Fetch the next row of a query result set, returning a single
@@ -696,7 +692,7 @@ class Cursor(object):
         except aiotrino.exceptions.HttpError as err:
             raise aiotrino.exceptions.OperationalError(str(err)) from None
 
-    async def fetchmany(self, size: Optional[int] = None) -> list[list[Any]]:
+    async def fetchmany(self, size: int | None = None) -> list[list[Any]]:
         """
         PEP-0249: Fetch the next set of rows of a query result, returning a
         sequence of sequences (e.g. a list of tuples). An empty sequence is

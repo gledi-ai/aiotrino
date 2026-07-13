@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Iterable
 from enum import Enum, unique
-from typing import Iterable
 
 import aiotrino.client
 import aiotrino.exceptions
@@ -47,11 +47,11 @@ class IsolationLevel(Enum):
     @classmethod
     def check(cls, level: int) -> int:
         if level not in cls.values():
-            raise ValueError("invalid isolation level {}".format(level))
+            raise ValueError(f"invalid isolation level {level}")
         return level
 
 
-class Transaction(object):
+class Transaction:
     def __init__(self, request: aiotrino.client.TrinoRequest):
         self._request = request
         self._id = NO_TRANSACTION
@@ -67,7 +67,7 @@ class Transaction(object):
     async def begin(self):
         response = await self._request.post(START_TRANSACTION)
         if not response.ok:
-            raise aiotrino.exceptions.DatabaseError("failed to start transaction: {}".format(response.status))
+            raise aiotrino.exceptions.DatabaseError(f"failed to start transaction: {response.status}")
         transaction_id = response.headers.get(constants.HEADER_STARTED_TRANSACTION)
         if transaction_id and transaction_id != NO_TRANSACTION:
             self._id = response.headers[constants.HEADER_STARTED_TRANSACTION]
@@ -87,9 +87,7 @@ class Transaction(object):
             # loop through to catch any exceptions
             [x async for x in await query.execute()]
         except Exception as err:
-            raise aiotrino.exceptions.DatabaseError(
-                "failed to commit transaction {}: {}".format(self._id, err)
-            ) from None
+            raise aiotrino.exceptions.DatabaseError(f"failed to commit transaction {self._id}: {err}") from None
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
@@ -99,9 +97,7 @@ class Transaction(object):
             # loop through to catch any exceptions
             [x async for x in await query.execute()]
         except Exception as err:
-            raise aiotrino.exceptions.DatabaseError(
-                "failed to rollback transaction {}: {}".format(self._id, err)
-            ) from None
+            raise aiotrino.exceptions.DatabaseError(f"failed to rollback transaction {self._id}: {err}") from None
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 

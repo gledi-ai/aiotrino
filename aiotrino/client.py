@@ -48,11 +48,12 @@ import urllib.parse
 import warnings
 from abc import abstractmethod
 from asyncio import sleep
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from enum import Enum
-from typing import Any, Iterator, Literal, Optional, TypedDict, Union, cast
+from enum import StrEnum
+from typing import Any, Literal, TypedDict, cast
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -72,14 +73,14 @@ from aiotrino.mapper import RowMapper, RowMapperFactory
 
 
 __all__ = [
-    "ClientSession",
-    "TrinoQuery",
-    "TrinoRequest",
     "PROXIES",
+    "ClientSession",
     "DecodableSegment",
-    "SpooledSegment",
     "InlineSegment",
     "Segment",
+    "SpooledSegment",
+    "TrinoQuery",
+    "TrinoRequest",
 ]
 
 
@@ -89,14 +90,14 @@ logger = aiotrino.logging.get_logger(__name__)
 try:
     import lz4.block
 except ImportError as err:
-    _LZ4_ERROR: Optional[str] = str(err)
+    _LZ4_ERROR: str | None = str(err)
 else:
     _LZ4_ERROR = None
 
 try:
     import zstandard
 except ImportError as err:
-    _ZSTD_ERROR: Optional[str] = str(err)
+    _ZSTD_ERROR: str | None = str(err)
 else:
     _ZSTD_ERROR = None
 
@@ -119,10 +120,7 @@ def _available_encodings() -> list[str]:
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
 SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
-if SOCKS_PROXY:
-    PROXIES = {"http": "socks5://" + SOCKS_PROXY, "https": "socks5://" + SOCKS_PROXY}
-else:
-    PROXIES = None
+PROXIES = {"http": "socks5://" + SOCKS_PROXY, "https": "socks5://" + SOCKS_PROXY} if SOCKS_PROXY else None
 
 _HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r"^\S[^\s=]*$")
 
@@ -169,18 +167,18 @@ class ClientSession:
     def __init__(
         self,
         user: str,
-        authorization_user: Optional[str] = None,
-        catalog: Optional[str] = None,
-        schema: Optional[str] = None,
-        source: Optional[str] = None,
-        properties: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
-        transaction_id: Optional[str] = None,
-        extra_credential: Optional[list[tuple[str, str]]] = None,
-        client_tags: Optional[list[str]] = None,
-        roles: Optional[Union[dict[str, str], str]] = None,
-        timezone: Optional[str] = None,
-        encoding: Optional[Union[str, list[str]]] = None,
+        authorization_user: str | None = None,
+        catalog: str | None = None,
+        schema: str | None = None,
+        source: str | None = None,
+        properties: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        transaction_id: str | None = None,
+        extra_credential: list[tuple[str, str]] | None = None,
+        client_tags: list[str] | None = None,
+        roles: dict[str, str] | str | None = None,
+        timezone: str | None = None,
+        encoding: str | list[str] | None = None,
     ):
         self._object_lock = threading.Lock()
         self._prepared_statements: dict[str, str] = {}
@@ -210,37 +208,37 @@ class ClientSession:
         return self._user
 
     @property
-    def authorization_user(self) -> Optional[str]:
+    def authorization_user(self) -> str | None:
         with self._object_lock:
             return self._authorization_user
 
     @authorization_user.setter
-    def authorization_user(self, authorization_user: Optional[str]) -> None:
+    def authorization_user(self, authorization_user: str | None) -> None:
         with self._object_lock:
             self._authorization_user = authorization_user
 
     @property
-    def catalog(self) -> Optional[str]:
+    def catalog(self) -> str | None:
         with self._object_lock:
             return self._catalog
 
     @catalog.setter
-    def catalog(self, catalog: Optional[str]) -> None:
+    def catalog(self, catalog: str | None) -> None:
         with self._object_lock:
             self._catalog = catalog
 
     @property
-    def schema(self) -> Optional[str]:
+    def schema(self) -> str | None:
         with self._object_lock:
             return self._schema
 
     @schema.setter
-    def schema(self, schema: Optional[str]) -> None:
+    def schema(self, schema: str | None) -> None:
         with self._object_lock:
             self._schema = schema
 
     @property
-    def source(self) -> Optional[str]:
+    def source(self) -> str | None:
         return self._source
 
     @property
@@ -258,17 +256,17 @@ class ClientSession:
         return self._headers
 
     @property
-    def transaction_id(self) -> Optional[str]:
+    def transaction_id(self) -> str | None:
         with self._object_lock:
             return self._transaction_id
 
     @transaction_id.setter
-    def transaction_id(self, transaction_id: Optional[str]) -> None:
+    def transaction_id(self, transaction_id: str | None) -> None:
         with self._object_lock:
             self._transaction_id = transaction_id
 
     @property
-    def extra_credential(self) -> Optional[list[tuple[str, str]]]:
+    def extra_credential(self) -> list[tuple[str, str]] | None:
         return self._extra_credential
 
     @property
@@ -300,12 +298,12 @@ class ClientSession:
             return self._timezone
 
     @property
-    def encoding(self) -> Union[str, list[str]]:
+    def encoding(self) -> str | list[str]:
         with self._object_lock:
             return self._encoding
 
     @staticmethod
-    def _format_roles(roles: Union[dict[str, str], str]) -> dict[str, str]:
+    def _format_roles(roles: dict[str, str] | str) -> dict[str, str]:
         if isinstance(roles, str):
             roles = {"system": roles}
         formatted_roles = {}
@@ -361,11 +359,11 @@ class TrinoResponseHandler(ResponseHandler):
     def set_response_params(
         self,
         *,
-        timer: Optional[BaseTimerContext] = None,
+        timer: BaseTimerContext | None = None,
         skip_payload: bool = False,
         read_until_eof: bool = False,
         auto_decompress: bool = True,
-        read_timeout: Optional[float] = None,
+        read_timeout: float | None = None,
         read_bufsize: int = 2**16,
         timeout_ceil_threshold: float = 5,
         max_line_size: int = 8190,
@@ -412,19 +410,16 @@ class TrinoStatus:
     stats: dict[str, str]
     warnings: list[Any]
     info_uri: str
-    next_uri: Optional[str]
-    update_type: Optional[str]
-    update_count: Optional[int]
-    rows: Union[list[Any], dict[str, Any]]
+    next_uri: str | None
+    update_type: str | None
+    update_count: int | None
+    rows: list[Any] | dict[str, Any]
     columns: list[Any]
 
     def __repr__(self):
-        return "TrinoStatus(id={}, stats={{...}}, warnings={}, info_uri={}, next_uri={}, rows=<count={}>)".format(
-            self.id,
-            len(self.warnings),
-            self.info_uri,
-            self.next_uri,
-            len(self.rows),
+        return (
+            f"TrinoStatus(id={self.id}, stats={{...}}, warnings={len(self.warnings)}, "
+            f"info_uri={self.info_uri}, next_uri={self.next_uri}, rows=<count={len(self.rows)}>)"
         )
 
 
@@ -445,8 +440,7 @@ class _DelayExponential:
         delay = float(self._base) * (self._exponent**attempt)
         if self._jitter:
             delay *= random.random()
-        delay = min(float(self._max_delay), delay)
-        return delay
+        return min(float(self._max_delay), delay)
 
 
 class _RetryWithExponentialBackoff:
@@ -525,11 +519,11 @@ class TrinoRequest:
         host: str,
         port: int,
         client_session: ClientSession,
-        http_session: Optional[aiohttp.ClientSession] = None,
-        http_scheme: Optional[str] = None,
-        auth: Optional[Authentication] = constants.DEFAULT_AUTH,
+        http_session: aiohttp.ClientSession | None = None,
+        http_scheme: str | None = None,
+        auth: Authentication | None = constants.DEFAULT_AUTH,
         max_attempts: int = MAX_ATTEMPTS,
-        request_timeout: Union[float, tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
+        request_timeout: float | tuple[float, float] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=_RetryWithExponentialBackoff(),
         verify: bool = True,
     ):
@@ -537,7 +531,7 @@ class TrinoRequest:
 
         self._host = host
         self._port = port
-        self._next_uri: Optional[str] = None
+        self._next_uri: str | None = None
 
         if http_scheme is None:
             if self._port == constants.DEFAULT_TLS_PORT:
@@ -564,7 +558,7 @@ class TrinoRequest:
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
 
-    def clone(self) -> "TrinoRequest":
+    def clone(self) -> TrinoRequest:
         """Because copy.deepcopy doesn't work with Futures"""
         return TrinoRequest(
             host=self._host,
@@ -595,11 +589,11 @@ class TrinoRequest:
         await self._close_http_session()
 
     @property
-    def transaction_id(self) -> Optional[str]:
+    def transaction_id(self) -> str | None:
         return self._client_session.transaction_id
 
     @transaction_id.setter
-    def transaction_id(self, value: Optional[str]) -> None:
+    def transaction_id(self, value: str | None) -> None:
         self._client_session.transaction_id = value
 
     @property
@@ -628,7 +622,7 @@ class TrinoRequest:
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
                 # ``name`` must not contain ``=``
-                "{}={}".format(catalog, urllib.parse.quote(str(role)))
+                f"{catalog}={urllib.parse.quote(str(role))}"
                 for catalog, role in self._client_session.roles.items()
             )
         if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
@@ -636,21 +630,21 @@ class TrinoRequest:
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            "{}={}".format(name, urllib.parse.quote(str(value)))
+            f"{name}={urllib.parse.quote(str(value))}"
             for name, value in self._client_session.properties.items()
         )
 
         if len(self._client_session.prepared_statements) != 0:
             # ``name`` must not contain ``=``
             headers[constants.HEADER_PREPARED_STATEMENT] = ",".join(
-                "{}={}".format(name, urllib.parse.quote_plus(statement))
+                f"{name}={urllib.parse.quote_plus(statement)}"
                 for name, statement in self._client_session.prepared_statements.items()
             )
 
         # merge custom http headers
         for key in self._client_session.headers:
-            if key in headers.keys():
-                raise ValueError("cannot override reserved HTTP header {}".format(key))
+            if key in headers:
+                raise ValueError(f"cannot override reserved HTTP header {key}")
         headers.update(self._client_session.headers)
 
         transaction_id = self._client_session.transaction_id
@@ -708,19 +702,17 @@ class TrinoRequest:
         self._delete = with_retry(self._http_session.delete)
 
     def get_url(self, path: str) -> str:
-        return "{protocol}://{host}:{port}{path}".format(
-            protocol=self._http_scheme, host=self._host, port=self._port, path=path
-        )
+        return f"{self._http_scheme}://{self._host}:{self._port}{path}"
 
     @property
     def statement_url(self) -> str:
         return self.get_url(constants.URL_STATEMENT_PATH)
 
     @property
-    def next_uri(self) -> Optional[str]:
+    def next_uri(self) -> str | None:
         return self._next_uri
 
-    async def post(self, sql: str, additional_http_headers: Optional[dict[str, Any]] = None) -> aiohttp.ClientResponse:
+    async def post(self, sql: str, additional_http_headers: dict[str, Any] | None = None) -> aiohttp.ClientResponse:
         data = sql.encode("utf-8")
         # Deep copy of the http_headers dict since they may be modified for this
         # request by the provided additional_http_headers
@@ -729,14 +721,13 @@ class TrinoRequest:
         # Update the request headers with the additional_http_headers
         http_headers.update(additional_http_headers or {})
 
-        http_response = await self._post(
+        return await self._post(
             self.statement_url,
             data=data,
             headers=http_headers,
             timeout=self._request_timeout,
             # TODO: proxies=PROXIES,
         )
-        return http_response
 
     async def get(self, url: str) -> aiohttp.ClientResponse:
         return await self._get(
@@ -754,11 +745,11 @@ class TrinoRequest:
         )
 
     @staticmethod
-    def _process_error(error, query_id: Optional[str]) -> Union[TrinoExternalError, TrinoQueryError, TrinoUserError]:
+    def _process_error(error, query_id: str | None) -> TrinoExternalError | TrinoQueryError | TrinoUserError:
         error_type = error["errorType"]
         if error_type == "EXTERNAL":
             raise exceptions.TrinoExternalError(error, query_id)
-        elif error_type == "USER_ERROR":
+        if error_type == "USER_ERROR":
             return exceptions.TrinoUserError(error, query_id)
 
         return exceptions.TrinoQueryError(error, query_id)
@@ -777,7 +768,7 @@ class TrinoRequest:
         raise exceptions.HttpError(
             "error {}{}".format(
                 http_response.status,
-                ": {}".format(await http_response.read()),
+                f": {await http_response.read()}",
             )
         )
 
@@ -788,7 +779,7 @@ class TrinoRequest:
 
         response: dict[str, Any] = await http_response.json(encoding="utf8")
         logger.debug("HTTP %s: %s", http_response.status, response)
-        if "error" in response and response["error"]:
+        if response.get("error"):
             raise self._process_error(response["error"], response.get("id"))
 
         if constants.HEADER_CLEAR_SESSION in http_response.headers:
@@ -895,7 +886,7 @@ class TrinoResult:
         return gen()
 
 
-class TrinoQuery(object):
+class TrinoQuery:
     """Represent the execution of a SQL statement by Trino."""
 
     def __init__(
@@ -905,11 +896,11 @@ class TrinoQuery(object):
         legacy_primitive_types: bool = False,
         fetch_mode: Literal["mapped", "segments"] = "mapped",
     ) -> None:
-        self._query_id: Optional[str] = None
+        self._query_id: str | None = None
         self._stats: dict[Any, Any] = {}
-        self._info_uri: Optional[str] = None
+        self._info_uri: str | None = None
         self._warnings: list[dict[Any, Any]] = []
-        self._columns: Optional[list[str]] = None
+        self._columns: list[str] | None = None
         self._finished = False
         self._cancelled = False
         self._request = request
@@ -917,17 +908,17 @@ class TrinoQuery(object):
         self._update_count = None
         self._next_uri = None
         self._query = query
-        self._result: Optional[TrinoResult] = None
+        self._result: TrinoResult | None = None
         self._legacy_primitive_types = legacy_primitive_types
-        self._row_mapper: Optional[RowMapper] = None
+        self._row_mapper: RowMapper | None = None
         self._fetch_mode = fetch_mode
 
     @property
-    def query_id(self) -> Optional[str]:
+    def query_id(self) -> str | None:
         return self._query_id
 
     @property
-    def query(self) -> Optional[str]:
+    def query(self) -> str | None:
         return self._query
 
     async def get_columns(self):
@@ -976,7 +967,7 @@ class TrinoQuery(object):
         try:
             response = await self._request.post(self._query, additional_http_headers)
         except aiohttp.client_exceptions.ClientError as e:
-            raise exceptions.TrinoConnectionError("failed to execute: {}".format(e)) from None
+            raise exceptions.TrinoConnectionError(f"failed to execute: {e}") from None
         status = await self._request.process(response)
         self._info_uri = status.info_uri
         self._query_id = status.id
@@ -1006,12 +997,12 @@ class TrinoQuery(object):
         if status.columns:
             self._columns = status.columns
 
-    async def fetch(self) -> list[Union[list[Any]], Any]:
+    async def fetch(self) -> list[list[Any], Any]:
         """Continue fetching data for the current query_id"""
         try:
             response = await self._request.get(self._request.next_uri)
         except aiohttp.client_exceptions.ClientError as e:
-            raise exceptions.TrinoConnectionError("failed to fetch: {}".format(e)) from None
+            raise exceptions.TrinoConnectionError(f"failed to fetch: {e}") from None
         status = await self._request.process(response)
         self._update_state(status)
         if status.next_uri is None:
@@ -1028,14 +1019,13 @@ class TrinoQuery(object):
             if self._fetch_mode == "segments":
                 return spooled
             return [row async for row in SegmentIterator(spooled, self._row_mapper)]
-        elif isinstance(status.rows, list):
+        if isinstance(status.rows, list):
             return self._row_mapper.map(rows)
-        else:
-            raise ValueError(f"Unexpected type: {type(status.rows)}")
+        raise ValueError(f"Unexpected type: {type(status.rows)}")
 
     def _to_segments(self, rows: _SpooledProtocolResponseTO) -> list[DecodableSegment]:
         encoding = rows["encoding"]
-        metadata = rows["metadata"] if "metadata" in rows else None
+        metadata = rows.get("metadata", None)
         segments = []
         for segment in rows["segments"]:
             segment_type = segment["type"]
@@ -1059,7 +1049,7 @@ class TrinoQuery(object):
         try:
             response = await self._request.delete(self._next_uri)
         except aiohttp.client_exceptions.ClientError as e:
-            raise exceptions.TrinoConnectionError("failed to cancel query: {}".format(e)) from None
+            raise exceptions.TrinoConnectionError(f"failed to cancel query: {e}") from None
         if response.status == 204:
             self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)
@@ -1119,12 +1109,11 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
 def _parse_retry_after_header(retry_after):
     if isinstance(retry_after, int):
         return retry_after
-    elif isinstance(retry_after, str) and retry_after.isdigit():
+    if isinstance(retry_after, str) and retry_after.isdigit():
         return int(retry_after)
-    else:
-        retry_date = parsedate_to_datetime(retry_after)
-        now = datetime.utcnow()
-        return (retry_date - now).total_seconds()
+    retry_date = parsedate_to_datetime(retry_after)
+    now = datetime.utcnow()
+    return (retry_date - now).total_seconds()
 
 
 # Trino Spooled protocol transfer objects
@@ -1154,7 +1143,7 @@ class _InlineSegmentTO(_SegmentTO):
     data: str
 
 
-class SegmentType(str, Enum):
+class SegmentType(StrEnum):
     """Enum with string values that can be compared to strings."""
 
     INLINE = "inline"
@@ -1297,13 +1286,13 @@ class DecodableSegment:
 
 
 class SegmentIterator:
-    def __init__(self, segments: Union[DecodableSegment, list[DecodableSegment]], mapper: RowMapper) -> None:
+    def __init__(self, segments: DecodableSegment | list[DecodableSegment], mapper: RowMapper) -> None:
         self._segments = iter(segments if isinstance(segments, list) else [segments])
         self._mapper = mapper
         self._decoder = None
         self._rows: Iterator[list[list[Any]]] = iter([])
         self._finished = False
-        self._current_segment: Optional[DecodableSegment] = None
+        self._current_segment: DecodableSegment | None = None
 
     def __aiter__(self) -> Iterator[list[Any]]:
         return self
@@ -1343,11 +1332,10 @@ class SegmentDecoder:
         if isinstance(segment, InlineSegment):
             inline_segment = cast(InlineSegment, segment)
             return self._decoder.decode(await inline_segment.get_data(), inline_segment.metadata)
-        elif isinstance(segment, SpooledSegment):
+        if isinstance(segment, SpooledSegment):
             spooled_data = cast(SpooledSegment, segment)
             return self._decoder.decode(await spooled_data.get_data(), spooled_data.metadata)
-        else:
-            raise ValueError(f"Unsupported segment type: {type(segment)}")
+        raise ValueError(f"Unsupported segment type: {type(segment)}")
 
 
 class CompressedQueryDataDecoderFactory:
@@ -1361,16 +1349,15 @@ class CompressedQueryDataDecoderFactory:
                     f"zstd is not installed so json+zstd encoding is not supported: {CODECS_UNAVAILABLE['zstd']}"
                 )
             return ZStdQueryDataDecoder(JsonQueryDataDecoder(self._mapper))
-        elif encoding == "json+lz4":
+        if encoding == "json+lz4":
             if "lz4" in CODECS_UNAVAILABLE:
                 raise ValueError(
                     f"lz4 is not installed so json+lz4 encoding is not supported: {CODECS_UNAVAILABLE['lz4']}"
                 )
             return Lz4QueryDataDecoder(JsonQueryDataDecoder(self._mapper))
-        elif encoding == "json":
+        if encoding == "json":
             return JsonQueryDataDecoder(self._mapper)
-        else:
-            raise ValueError(f"Unsupported encoding: {encoding}")
+        raise ValueError(f"Unsupported encoding: {encoding}")
 
 
 class QueryDataDecoder(abc.ABC):
@@ -1426,5 +1413,4 @@ class ZStdQueryDataDecoder(CompressedQueryDataDecoder):
 class Lz4QueryDataDecoder(CompressedQueryDataDecoder):
     def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
         expected_uncompressed_size = metadata["uncompressedSize"]
-        decoded_bytes = lz4.block.decompress(data, uncompressed_size=int(expected_uncompressed_size))
-        return decoded_bytes
+        return lz4.block.decompress(data, uncompressed_size=int(expected_uncompressed_size))

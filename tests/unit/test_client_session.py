@@ -1,5 +1,3 @@
-from typing import Dict, Optional, Union
-
 import pytest
 
 from aiotrino.client import ClientSession
@@ -80,7 +78,7 @@ def test_client_session_extra_client_tags() -> None:
         ({"hive": "fake"}, {"hive": "ROLE{fake}"}),
     ],
 )
-def test_client_session_roles(argument: Optional[Union[str, Dict[str, str]]], result: Dict[str, str]) -> None:
+def test_client_session_roles(argument: str | dict[str, str] | None, result: dict[str, str]) -> None:
     session = ClientSession(user="user", roles=argument)
     assert session.roles == result
 

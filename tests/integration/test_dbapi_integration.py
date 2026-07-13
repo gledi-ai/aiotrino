@@ -13,9 +13,9 @@ import math
 import sys
 import time as t
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-from typing import AsyncGenerator, Tuple
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -1653,8 +1653,7 @@ async def retrieve_client_tags_from_query(run_trino, client_tags):
             },
         ).json()
 
-        query_client_tags = query_info["session"]["clientTags"]
-        return query_client_tags
+        return query_info["session"]["clientTags"]
     finally:
         await trino_connection.close()
 
@@ -2031,7 +2030,7 @@ async def test_select_query_spooled_segments(trino_connection: Connection):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_segments_cursor(trino_connection: Connection):
     if trino_connection._client_session.encoding is None:
-        with pytest.raises(ValueError, match=".*encoding.*"):
+        with pytest.raises(ValueError, match="encoding"):
             await trino_connection.cursor("segment")
         return
 
@@ -2086,7 +2085,7 @@ class _TestTable:
         self._table_name = table_name_prefix + "_" + str(uuid.uuid4().hex)
         self._table_definition = table_definition
 
-    async def __aenter__(self) -> Tuple["_TestTable", Cursor]:
+    async def __aenter__(self) -> tuple["_TestTable", Cursor]:
         cur = await self._conn.cursor()
         return (self, await cur.execute(f"CREATE TABLE {self._table_name} {self._table_definition}"))
 

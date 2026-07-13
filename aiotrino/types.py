@@ -3,16 +3,16 @@ from __future__ import annotations
 import abc
 from datetime import datetime, time, timedelta
 from decimal import Decimal
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union, cast
+from typing import Any, TypeVar, cast
 
 
-PythonTemporalType = TypeVar("PythonTemporalType", bound=Union[time, datetime])
-POWERS_OF_TEN: Dict[int, Decimal] = {i: Decimal(10**i) for i in range(0, 13)}
+PythonTemporalType = TypeVar("PythonTemporalType", bound=time | datetime)
+POWERS_OF_TEN: dict[int, Decimal] = {i: Decimal(10**i) for i in range(0, 13)}
 MAX_PYTHON_TEMPORAL_PRECISION_POWER = 6
 MAX_PYTHON_TEMPORAL_PRECISION = POWERS_OF_TEN[MAX_PYTHON_TEMPORAL_PRECISION_POWER]
 
 
-class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
+class TemporalType[PythonTemporalType: time | datetime](metaclass=abc.ABCMeta):
     def __init__(self, whole_python_temporal_value: PythonTemporalType, remaining_fractional_seconds: Decimal):
         self._whole_python_temporal_value = whole_python_temporal_value
         self._remaining_fractional_seconds = remaining_fractional_seconds
@@ -88,23 +88,23 @@ class TimestampWithTimeZone(Timestamp, TemporalType[datetime]):
         return TimestampWithTimeZone(value, fraction)
 
 
-class NamedRowTuple(Tuple[Any, ...]):
+class NamedRowTuple(tuple[Any, ...]):
     """Custom tuple class as namedtuple doesn't support missing or duplicate names"""
 
-    def __new__(cls, values: List[Any], names: List[str], types: List[str]) -> NamedRowTuple:
+    def __new__(cls, values: list[Any], names: list[str], types: list[str]) -> NamedRowTuple:
         return cast(NamedRowTuple, super().__new__(cls, values))
 
-    def __init__(self, values: List[Any], names: List[Optional[str]], types: List[str]):
+    def __init__(self, values: list[Any], names: list[str | None], types: list[str]):
         self._names = names
         # With names and types users can retrieve the name and Trino data type of a row
         self.__annotations__ = {}
         self.__annotations__["names"] = names
         self.__annotations__["types"] = types
-        elements: List[Any] = []
+        elements: list[Any] = []
         for name, value in zip(names, values, strict=False):
             if name is not None and names.count(name) == 1:
                 setattr(self, name, value)
-                elements.append(f"{name}: {repr(value)}")
+                elements.append(f"{name}: {value!r}")
             else:
                 elements.append(repr(value))
         self._repr = "(" + ", ".join(elements) + ")"

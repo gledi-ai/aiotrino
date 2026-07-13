@@ -11,8 +11,8 @@
 # limitations under the License
 import math
 import uuid
+from collections.abc import AsyncGenerator
 from decimal import Decimal
-from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
@@ -99,7 +99,7 @@ async def test_select_specific_columns(trino_connection: tuple[AsyncEngine, Asyn
 @pytest.mark.parametrize("trino_connection", ["memory"], indirect=True)
 @pytest.mark.asyncio(loop_scope="session")
 async def test_define_and_create_table(trino_connection: tuple[AsyncEngine, AsyncConnection]):
-    engine, conn = trino_connection
+    engine, _conn = trino_connection
     async with engine.begin() as connection:
         if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
             await connection.execute(sqla.schema.CreateSchema("test"))
@@ -166,7 +166,7 @@ async def test_insert(trino_connection: tuple[AsyncEngine, AsyncConnection]):
 @pytest.mark.parametrize("trino_connection", ["memory"], indirect=True)
 @pytest.mark.asyncio(loop_scope="session")
 async def test_define_and_create_table_uuid(trino_connection: tuple[AsyncEngine, AsyncConnection]):
-    engine, conn = trino_connection
+    engine, _conn = trino_connection
 
     async with engine.begin() as connection:
         if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
@@ -720,7 +720,7 @@ async def test_row_column(trino_connection: tuple[AsyncEngine, AsyncConnection],
 @pytest.mark.parametrize("trino_connection", ["system"], indirect=True)
 @pytest.mark.asyncio(loop_scope="session")
 async def test_get_catalog_names(trino_connection: tuple[AsyncEngine, AsyncConnection]):
-    engine, conn = trino_connection
+    engine, _conn = trino_connection
 
     async with engine.begin() as connection:
         catalogs = await connection.run_sync(lambda conn: engine.dialect.get_catalog_names(conn))
@@ -735,7 +735,7 @@ async def test_get_catalog_names(trino_connection: tuple[AsyncEngine, AsyncConne
 @pytest.mark.parametrize("trino_connection", ["memory"], indirect=True)
 @pytest.mark.asyncio(loop_scope="session")
 async def test_get_table_comment(trino_connection: tuple[AsyncEngine, AsyncConnection]):
-    engine, conn = trino_connection
+    engine, _conn = trino_connection
 
     async with engine.begin() as connection:
         if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):

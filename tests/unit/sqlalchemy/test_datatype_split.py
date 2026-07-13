@@ -9,7 +9,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import List
 
 import pytest
 
@@ -57,7 +56,7 @@ split_string_testcases = {
     split_string_testcases.items(),
     ids=split_string_testcases.keys(),
 )
-def test_split_string(input_string: str, output_strings: List[str]):
+def test_split_string(input_string: str, output_strings: list[str]):
     actual = list(datatype.aware_split(input_string))
     assert actual == output_strings
 
@@ -75,7 +74,7 @@ split_delimiter_testcases = [
     "input_string, delimiter, output_strings",
     split_delimiter_testcases,
 )
-def test_split_delimiter(input_string: str, delimiter: str, output_strings: List[str]):
+def test_split_delimiter(input_string: str, delimiter: str, output_strings: list[str]):
     actual = list(datatype.aware_split(input_string, delimiter=delimiter))
     assert actual == output_strings
 
@@ -98,6 +97,6 @@ split_maxsplit_testcases = [
     "input_string, maxsplit, output_strings",
     split_maxsplit_testcases,
 )
-def test_split_maxsplit(input_string: str, maxsplit: int, output_strings: List[str]):
+def test_split_maxsplit(input_string: str, maxsplit: int, output_strings: list[str]):
     actual = list(datatype.aware_split(input_string, maxsplit=maxsplit))
     assert actual == output_strings

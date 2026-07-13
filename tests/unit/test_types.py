@@ -23,10 +23,10 @@ def identity(x):
 
 
 type_instances = [
-    (types.Time(time(11, 47, 23), Decimal(0.314)), lambda v: v.to_python_type()),
-    (types.TimeWithTimeZone(time(11, 47, 23), Decimal(0.314)), lambda v: v.to_python_type()),
-    (types.Timestamp(datetime(2024, 10, 15, 11, 47, 23), Decimal(0.314)), lambda v: v.to_python_type()),
-    (types.TimestampWithTimeZone(datetime(2024, 10, 15, 11, 47, 23), Decimal(0.314)), lambda v: v.to_python_type()),
+    (types.Time(time(11, 47, 23), Decimal("0.314")), lambda v: v.to_python_type()),
+    (types.TimeWithTimeZone(time(11, 47, 23), Decimal("0.314")), lambda v: v.to_python_type()),
+    (types.Timestamp(datetime(2024, 10, 15, 11, 47, 23), Decimal("0.314")), lambda v: v.to_python_type()),
+    (types.TimestampWithTimeZone(datetime(2024, 10, 15, 11, 47, 23), Decimal("0.314")), lambda v: v.to_python_type()),
     (types.NamedRowTuple(["Alice", 38], ["name", "age"], ["varchar", "integer"]), identity),
 ]
 

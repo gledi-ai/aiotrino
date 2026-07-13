@@ -11,7 +11,7 @@
 # limitations under the License.
 from sqlalchemy.dialects import registry
 
-from .util import _url as URL  # noqa
+from .util import _url as URL
 
 
 registry.register("aiotrino", "aiotrino.sqlalchemy.dialect", "AIOTrinoDialect")

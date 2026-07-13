@@ -10,15 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 
 DEFAULT_PORT = 8080
 DEFAULT_TLS_PORT = 443
 DEFAULT_SOURCE = "aiotrino-python-client"
-DEFAULT_CATALOG: Optional[str] = None
-DEFAULT_SCHEMA: Optional[str] = None
-DEFAULT_AUTH: Optional[Any] = None
+DEFAULT_CATALOG: str | None = None
+DEFAULT_SCHEMA: str | None = None
+DEFAULT_AUTH: Any | None = None
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_REQUEST_TIMEOUT: float = 30.0
 MAX_NT_PASSWORD_SIZE: int = 1280
