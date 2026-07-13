@@ -628,9 +628,7 @@ class AIOTrinoDialect(DefaultDialect):
             columns.append(column)
         return columns
 
-    def _get_partitions(
-        self, connection: Connection, table_name: str, schema: str | None = None
-    ) -> list[dict[str, list[Any]]]:
+    def _get_partitions(self, connection: Connection, table_name: str, schema: str | None = None) -> list[str] | None:
         schema = schema or self._get_default_schema_name(connection)
         query = dedent(
             f"""
@@ -638,7 +636,22 @@ class AIOTrinoDialect(DefaultDialect):
         """
         ).strip()
         res = connection.execute(sql.text(query))
-        return [desc[0] for desc in await_only(res.cursor.get_description())]
+        description = await_only(res.cursor.get_description())
+        partition_names = [desc[0] for desc in description]
+        data_types = [desc[1] for desc in description]
+        # Compare the column names and types to the shape of an Iceberg $partitions table
+        if (
+            partition_names == ["partition", "record_count", "file_count", "total_size", "data"]
+            and data_types[0].startswith("row(")
+            and data_types[1] == "bigint"
+            and data_types[2] == "bigint"
+            and data_types[3] == "bigint"
+            and data_types[4].startswith("row(")
+        ):
+            # This is an Iceberg $partitions table - these match the partition metadata columns
+            return None
+        # This is a Hive table - these are the partition names
+        return partition_names
 
     def get_pk_constraint(
         self, connection: Connection, table_name: str, schema: str | None = None, **kw
@@ -741,7 +754,7 @@ class AIOTrinoDialect(DefaultDialect):
         try:
             partitioned_columns = self._get_partitions(connection, f"{table_name}", schema)
         except Exception as e:
-            # e.g. it's not a Hive table or an unpartitioned Hive table
+            # e.g. it's an unpartitioned Hive table
             logger.debug("Couldn't fetch partition columns. schema: %s, table: %s, error: %s", schema, table_name, e)
         if not partitioned_columns:
             return []

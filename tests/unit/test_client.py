@@ -140,7 +140,7 @@ async def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_USER] == authorization_user
         assert headers[constants.HEADER_SESSION] == ""
         assert headers[constants.HEADER_TIMEZONE] == timezone
-        assert headers[constants.HEADER_CLIENT_CAPABILITIES] == "PARAMETRIC_DATETIME"
+        assert headers[constants.HEADER_CLIENT_CAPABILITIES] == "NUMBER,PARAMETRIC_DATETIME"
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
         assert headers[constants.HEADER_ROLE] == (
@@ -782,7 +782,7 @@ async def test_trino_query_response_headers(sample_get_response_data):
     sql = "execute my_stament using 1, 2, 3"
     additional_headers = {
         constants.HEADER_PREPARED_STATEMENT: "my_statement=added_prepare_statement_header",
-        constants.HEADER_CLIENT_CAPABILITIES: "PARAMETRIC_DATETIME",
+        constants.HEADER_CLIENT_CAPABILITIES: "NUMBER,PARAMETRIC_DATETIME",
     }
 
     # Patch the post function to avoid making the requests, as well as to
