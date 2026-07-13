@@ -36,7 +36,9 @@ The main interface is :class:`TrinoQuery`: ::
 from __future__ import annotations
 
 import abc
+import asyncio
 import base64
+import contextlib
 import copy
 import functools
 import json
@@ -179,6 +181,7 @@ class ClientSession:
         roles: dict[str, str] | str | None = None,
         timezone: str | None = None,
         encoding: str | list[str] | None = None,
+        heartbeat_interval: float | None = constants.DEFAULT_HEARTBEAT_INTERVAL,
     ):
         self._object_lock = threading.Lock()
         self._prepared_statements: dict[str, str] = {}
@@ -202,6 +205,7 @@ class ClientSession:
 
             self._timezone = get_localzone_name()
         self._encoding = encoding
+        self._heartbeat_interval = heartbeat_interval
 
     @property
     def user(self) -> str:
@@ -301,6 +305,10 @@ class ClientSession:
     def encoding(self) -> str | list[str]:
         with self._object_lock:
             return self._encoding
+
+    @property
+    def heartbeat_interval(self) -> float | None:
+        return self._heartbeat_interval
 
     @staticmethod
     def _format_roles(roles: dict[str, str] | str) -> dict[str, str]:
@@ -617,7 +625,7 @@ class TrinoRequest:
             headers[constants.HEADER_ENCODING] = self._client_session.encoding
         else:
             raise ValueError("Invalid type for encoding: expected str or list")
-        headers[constants.HEADER_CLIENT_CAPABILITIES] = "PARAMETRIC_DATETIME"
+        headers[constants.HEADER_CLIENT_CAPABILITIES] = "NUMBER,PARAMETRIC_DATETIME"
         headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
@@ -686,6 +694,7 @@ class TrinoRequest:
             self._get = self._http_session.get
             self._post = self._http_session.post
             self._delete = self._http_session.delete
+            self._head = self._http_session.head
             return
 
         with_retry = _retry_with(
@@ -700,6 +709,7 @@ class TrinoRequest:
         self._get = with_retry(self._http_session.get)
         self._post = with_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
+        self._head = with_retry(self._http_session.head)
 
     def get_url(self, path: str) -> str:
         return f"{self._http_scheme}://{self._host}:{self._port}{path}"
@@ -740,6 +750,14 @@ class TrinoRequest:
     async def delete(self, url: str) -> aiohttp.ClientResponse:
         return await self._delete(
             url,
+            timeout=self._request_timeout,
+            # TODO: proxies=PROXIES,
+        )
+
+    async def head(self, url: str) -> aiohttp.ClientResponse:
+        return await self._head(
+            url,
+            headers=self.http_headers,
             timeout=self._request_timeout,
             # TODO: proxies=PROXIES,
         )
@@ -1018,7 +1036,15 @@ class TrinoQuery:
             spooled = self._to_segments(rows)
             if self._fetch_mode == "segments":
                 return spooled
-            return [row async for row in SegmentIterator(spooled, self._row_mapper)]
+            return [
+                row
+                async for row in SegmentIterator(
+                    spooled,
+                    self._row_mapper,
+                    request=self._request,
+                    heartbeat_interval=self._request._client_session.heartbeat_interval,
+                )
+            ]
         if isinstance(status.rows, list):
             return self._row_mapper.map(rows)
         raise ValueError(f"Unexpected type: {type(status.rows)}")
@@ -1285,14 +1311,81 @@ class DecodableSegment:
         return f"DecodableSegment(encoding={self._encoding}, metadata={self._metadata}, segment={self._segment})"
 
 
+class _RequestHeartbeat:
+    """
+    Heartbeat loop for a Trino request. Periodically sends HEAD requests to the request's next URI.
+    This prevents the coordinator from abandoning a query if the client is silent for a longer
+    period of time, for example when downloading a spooled segment from external storage.
+    """
+
+    MAX_FAILURES = 3
+
+    def __init__(self, request: TrinoRequest, interval: float) -> None:
+        self._request = request
+        self._interval = interval
+        self._task: asyncio.Task | None = None
+
+    async def __aenter__(self) -> _RequestHeartbeat:
+        self._task = asyncio.create_task(self._run())
+        return self
+
+    async def __aexit__(self, *_) -> None:
+        if self._task is None:
+            return
+        self._task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await self._task
+
+    async def _run(self) -> None:
+        """
+        Run the heartbeat loop.
+
+        Exit when cancelled, the query completed, or the error count exceeds MAX_FAILURES.
+        """
+        failures = 0
+        while True:
+            await asyncio.sleep(self._interval)
+            uri = self._request.next_uri
+            if uri is None:
+                return
+            try:
+                response = await self._request.head(uri)
+                try:
+                    if response.status in (404, 405):
+                        logger.warning("The server does not support heartbeat calls")
+                        return
+                    failures = 0 if response.ok else failures + 1
+                finally:
+                    # ponytail: close over release; a 30s heartbeat doesn't need pooled reuse
+                    response.close()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                failures += 1
+            if failures >= self.MAX_FAILURES:
+                logger.warning("Stopping the heartbeat after %s consecutive errors", self.MAX_FAILURES)
+                return
+
+
 class SegmentIterator:
-    def __init__(self, segments: DecodableSegment | list[DecodableSegment], mapper: RowMapper) -> None:
+    def __init__(
+        self,
+        segments: DecodableSegment | list[DecodableSegment],
+        mapper: RowMapper,
+        *,
+        request: TrinoRequest | None = None,
+        heartbeat_interval: float | None = None,
+    ) -> None:
         self._segments = iter(segments if isinstance(segments, list) else [segments])
         self._mapper = mapper
         self._decoder = None
         self._rows: Iterator[list[list[Any]]] = iter([])
         self._finished = False
         self._current_segment: DecodableSegment | None = None
+        if (request is not None) != bool(heartbeat_interval):
+            raise ValueError("request and heartbeat_interval must be both provided or both omitted")
+        self._request = request
+        self._heartbeat_interval = heartbeat_interval
 
     def __aiter__(self) -> Iterator[list[Any]]:
         return self
@@ -1319,7 +1412,15 @@ class SegmentIterator:
                 self._decoder = SegmentDecoder(
                     CompressedQueryDataDecoderFactory(self._mapper).create(self._current_segment.encoding)
                 )
-            self._rows = iter(await self._decoder.decode(self._current_segment.segment))
+            segment = self._current_segment.segment
+            if isinstance(segment, SpooledSegment) and self._request and self._heartbeat_interval:
+                # Downloading a spooled segment may take a while. Send heartbeats meanwhile so the
+                # coordinator doesn't think we lost interest and close the query.
+                async with _RequestHeartbeat(self._request, self._heartbeat_interval):
+                    rows = await self._decoder.decode(segment)
+            else:
+                rows = await self._decoder.decode(segment)
+            self._rows = iter(rows)
         except StopIteration:
             self._finished = True
 
