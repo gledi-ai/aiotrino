@@ -907,7 +907,7 @@ class TrinoResult:
                         self._rownumber += 1
                         yield row
                 elif self._rows is not None:
-                    # Spooling protocol: rows is a lazy async iterator over segments
+                    # Spooling protocol: rows is a lazy async iterator yielding decoded rows
                     async for row in self._rows:
                         self._rownumber += 1
                         yield row
