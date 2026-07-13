@@ -60,6 +60,8 @@ dev = [
   "pytest",
   "pytest-aiohttp",
   "pytest-asyncio",
+  "pytest-cov",
+  "pytest-sugar",
   "pytz",
   "ruff",
   "testcontainers",
@@ -83,11 +85,12 @@ packages = ["aiotrino"]
 include = ["/aiotrino", "/README.md", "/LICENSE"]
 
 [tool.uv]
-exclude-newer = "7d"
+exclude-newer = "7 days"
 default-groups = "all"
 
 [tool.ruff]
 line-length = 120
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -116,3 +119,10 @@ lines-after-imports = 2
 # https://pytest-asyncio.readthedocs.io/en/latest/reference/configuration.html
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
+
+[tool.coverage.run]
+source = ["aiotrino"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true

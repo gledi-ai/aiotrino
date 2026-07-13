@@ -43,3 +43,13 @@ jobs:
 
       - name: Run tests for each supported Python version
         run: nox --session=test --non-interactive --python ${{ matrix.python-version }}
+
+      - name: Upload test and coverage reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-py${{ matrix.python-version }}
+          path: |
+            junit-${{ matrix.python-version }}.xml
+            coverage-${{ matrix.python-version }}.xml
+          if-no-files-found: warn

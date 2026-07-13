@@ -152,9 +152,8 @@ static
 .envrc
 
 # AI agents files & directories
-.serena/
 .claude/
-.opencode/
+.serena/
 CLAUDE.md
-AGENTS.md
 .superpowers/
+tokensave/
