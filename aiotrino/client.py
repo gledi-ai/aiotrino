@@ -877,7 +877,7 @@ class TrinoResult:
     https://docs.python.org/3/library/stdtypes.html#generator-types
     """
 
-    def __init__(self, query, rows: list[Any] | AsyncIterator[list[Any]]):
+    def __init__(self, query, rows: list[list[Any]] | list[DecodableSegment] | AsyncIterator[list[Any]]):
         self._query = query
         # Initial rows from the first POST request
         self._rows = rows
@@ -1051,7 +1051,7 @@ class TrinoQuery:
         if status.columns:
             self._columns = status.columns
 
-    async def fetch(self) -> list[Any] | SegmentIterator:
+    async def fetch(self) -> list[list[Any]] | list[DecodableSegment] | SegmentIterator:
         """Continue fetching data for the current query_id"""
         try:
             response = await self._request.get(self._request.next_uri)
