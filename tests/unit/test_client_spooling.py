@@ -32,18 +32,25 @@ def _inline_segment(rows):
     }
 
 
-def _spooled_status(segments):
+def _status(rows, next_uri=None, columns=None):
     return TrinoStatus(
         id="q1",
         stats={},
         warnings=[],
         info_uri="http://coordinator/query.html?q1",
-        next_uri=None,
+        next_uri=next_uri,
         update_type=None,
         update_count=None,
-        rows={"encoding": "json", "segments": segments},
-        columns=None,
+        rows=rows,
+        columns=columns,
     )
+
+
+def _spooled_status(segments, **kwargs):
+    return _status({"encoding": "json", "segments": segments}, **kwargs)
+
+
+COLUMNS = [{"name": "a", "type": "integer"}]
 
 
 async def test_fetch_returns_lazy_segment_iterator():
@@ -62,9 +69,55 @@ async def test_fetch_returns_lazy_segment_iterator():
             result = await query.fetch()
 
         assert isinstance(result, SegmentIterator)
-        # Nothing decoded until the iterator is consumed
-        assert result._decoder is None
+        # Nothing decoded/mapped until the iterator is consumed
+        assert query._row_mapper.map.call_count == 0
         assert [row async for row in result] == [[1], [2], [3]]
+
+
+async def test_execute_spooling_blocks_until_first_row_and_keeps_order():
+    session = ClientSession(user="test", encoding="json")
+    async with TrinoRequest(host="coordinator", port=8080, client_session=session, http_scheme="http") as request:
+        query = TrinoQuery(request, query="SELECT 1")
+        query._row_mapper = mock.Mock()
+        query._row_mapper.map.side_effect = lambda rows: rows
+
+        post_status = _status([], next_uri="http://coordinator/v1/statement/q1/1", columns=COLUMNS)
+        fetch_status = _spooled_status([_inline_segment([[1], [2]]), _inline_segment([[3]])], columns=COLUMNS)
+        with (
+            mock.patch.object(request, "post", mock.AsyncMock(return_value=mock.Mock())),
+            mock.patch.object(request, "get", mock.AsyncMock(return_value=mock.Mock())),
+            mock.patch.object(request, "process", mock.AsyncMock(side_effect=[post_status, fetch_status])),
+        ):
+            result = await query.execute()
+
+        # Blocked until the first row arrived: initial empty POST rows mapped,
+        # first segment decoded, second segment still pending
+        assert query._row_mapper.map.call_count == 2
+        # First row consumed by execute() is prepended back: no loss, no duplication
+        assert [row async for row in result] == [[1], [2], [3]]
+        assert query._row_mapper.map.call_count == 3
+        assert result.rownumber == 3
+
+
+async def test_get_columns_spooling_preserves_buffered_rows():
+    session = ClientSession(user="test", encoding="json")
+    async with TrinoRequest(host="coordinator", port=8080, client_session=session, http_scheme="http") as request:
+        query = TrinoQuery(request, query="SELECT 1")
+        query._query_id = "q1"
+        query._row_mapper = mock.Mock()
+        query._row_mapper.map.side_effect = lambda rows: rows
+        query._result = TrinoResult(query, [])
+
+        status = _spooled_status([_inline_segment([[1], [2]]), _inline_segment([[3]])], columns=COLUMNS)
+        with (
+            mock.patch.object(request, "get", mock.AsyncMock(return_value=mock.Mock())),
+            mock.patch.object(request, "process", mock.AsyncMock(return_value=status)),
+        ):
+            columns = await query.get_columns()
+
+        assert columns == COLUMNS
+        # Row consumed while waiting for columns is prepended back
+        assert [row async for row in query._result] == [[1], [2], [3]]
 
 
 async def test_prepend_row_keeps_order():
