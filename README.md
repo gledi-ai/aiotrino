@@ -25,14 +25,14 @@ Use the DBAPI interface to query Trino:
 import aiotrino
 
 conn = aiotrino.dbapi.connect(
-    host='localhost',
+    host="localhost",
     port=8080,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
+    user="the-user",
+    catalog="the-catalog",
+    schema="the-schema",
 )
 cur = await conn.cursor()
-await cur.execute('SELECT * FROM system.runtime.nodes')
+await cur.execute("SELECT * FROM system.runtime.nodes")
 rows = await cur.fetchall()
 await conn.close()
 ```
@@ -41,14 +41,14 @@ Or with context manager
 import aiotrino
 
 async with aiotrino.dbapi.connect(
-    host='localhost',
+    host="localhost",
     port=8080,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
+    user="the-user",
+    catalog="the-catalog",
+    schema="the-schema",
 ) as conn:
     cur = await conn.cursor()
-    await cur.execute('SELECT * FROM system.runtime.nodes')
+    await cur.execute("SELECT * FROM system.runtime.nodes")
     rows = await cur.fetchall()
 ```
 
@@ -63,6 +63,7 @@ rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
 For backwards compatibility with PrestoSQL, override the headers at the start of your application
 ```python
 import aiotrino
+
 aiotrino.constants.HEADERS = aiotrino.constants.PrestoHeaders
 ```
 
@@ -71,17 +72,18 @@ The `BasicAuthentication` class can be used to connect to a LDAP-configured Trin
 cluster:
 ```python
 import aiotrino
+
 conn = aiotrino.dbapi.connect(
-    host='coordinator url',
+    host="coordinator url",
     port=8443,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
-    http_scheme='https',
+    user="the-user",
+    catalog="the-catalog",
+    schema="the-schema",
+    http_scheme="https",
     auth=aiotrino.auth.BasicAuthentication("principal id", "password"),
 )
 cur = await conn.cursor()
-await cur.execute('SELECT * FROM system.runtime.nodes')
+await cur.execute("SELECT * FROM system.runtime.nodes")
 rows = await cur.fetchall()
 await conn.close()
 ```
@@ -90,16 +92,17 @@ await conn.close()
 The `JWTAuthentication` class can be used to connect to a configured Trino cluster:
 ```python
 import aiotrino
+
 conn = aiotrino.dbapi.connect(
-    host='coordinator url',
+    host="coordinator url",
     port=8443,
-    catalog='the-catalog',
-    schema='the-schema',
-    http_scheme='https',
+    catalog="the-catalog",
+    schema="the-schema",
+    http_scheme="https",
     auth=aiotrino.auth.JWTAuthentication(token="jwt-token"),
 )
 cur = await conn.cursor()
-await cur.execute('SELECT * FROM system.runtime.nodes')
+await cur.execute("SELECT * FROM system.runtime.nodes")
 rows = await cur.fetchall()
 await conn.close()
 ```
@@ -111,19 +114,20 @@ The client runs by default in *autocommit* mode. To enable transactions, set
 ```python
 import aiotrino
 from aiotrino import transaction
+
 async with aiotrino.dbapi.connect(
-    host='localhost',
+    host="localhost",
     port=8080,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
+    user="the-user",
+    catalog="the-catalog",
+    schema="the-schema",
     isolation_level=transaction.IsolationLevel.REPEATABLE_READ,
 ) as conn:
-  cur = await conn.cursor()
-  await cur.execute('INSERT INTO sometable VALUES (1, 2, 3)')
-  await cur.fetchone()
-  await cur.execute('INSERT INTO sometable VALUES (4, 5, 6)')
-  await cur.fetchone()
+    cur = await conn.cursor()
+    await cur.execute("INSERT INTO sometable VALUES (1, 2, 3)")
+    await cur.fetchone()
+    await cur.execute("INSERT INTO sometable VALUES (4, 5, 6)")
+    await cur.fetchone()
 ```
 
 The transaction is created when the first SQL statement is executed.
