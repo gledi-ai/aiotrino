@@ -2,6 +2,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from sqlalchemy import exc
 from sqlalchemy.engine.url import URL, make_url
 
 from aiotrino.auth import BasicAuthentication
@@ -287,6 +288,48 @@ def test_trino_connection_basic_auth():
     assert isinstance(cparams["auth"], BasicAuthentication)
     assert cparams["auth"]._username == username
     assert cparams["auth"]._password == password
+
+
+def test_create_connect_args_does_not_double_decode_password():
+    # SQLAlchemy already decodes %2B to '+'. The dialect must not decode it again into a space.
+    dialect = AIOTrinoDialect()
+    url = make_url("aiotrino://user:pass%2Bword@localhost:8080/system")
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams["user"] == "user"
+    assert cparams["auth"]._password == "pass+word"
+
+
+def test_url_rejects_host_with_scheme():
+    with pytest.raises(exc.ArgumentError, match="host must be a hostname only"):
+        trino_url(host="https://example.com")
+
+
+def test_url_rejects_host_with_port():
+    with pytest.raises(exc.ArgumentError, match="host must be a hostname only"):
+        trino_url(host="example.com:8080")
+
+
+def test_url_accepts_plain_host():
+    assert "example.com" in trino_url(host="example.com")
+
+
+def test_get_columns_includes_comment():
+    dialect = AIOTrinoDialect()
+    record = mock.Mock(
+        column_name="id",
+        data_type="integer",
+        column_default=None,
+        is_nullable="YES",
+        comment="the id column",
+    )
+    connection = mock.Mock()
+    connection.execute.return_value = [record]
+
+    columns = dialect._get_columns(connection, "t", schema="s")
+
+    assert columns[0]["name"] == "id"
+    assert columns[0]["comment"] == "the id column"
 
 
 # def test_trino_connection_jwt_auth():

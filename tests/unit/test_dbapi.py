@@ -14,7 +14,9 @@ from unittest.mock import patch
 import pytest
 from aiohttp import ClientSession
 
+import aiotrino.exceptions
 from aiotrino import constants
+from aiotrino.auth import BasicAuthentication
 from aiotrino.dbapi import Connection, connect
 
 
@@ -150,3 +152,30 @@ async def test_description_is_none_when_cursor_is_not_executed():
     connection = Connection("sample_trino_cluster:443")
     async with await connection.cursor() as cursor:
         assert await cursor.get_description() is None
+
+
+@pytest.mark.asyncio
+async def test_error_when_auth_over_http():
+    with pytest.raises(aiotrino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection("mytrinoserver.domain", http_scheme=constants.HTTP, auth=BasicAuthentication("u", "p"))
+
+
+@pytest.mark.asyncio
+async def test_no_error_when_auth_over_https():
+    Connection("mytrinoserver.domain", http_scheme=constants.HTTPS, auth=BasicAuthentication("u", "p"))
+
+
+@pytest.mark.asyncio
+@patch("aiotrino.dbapi.aiotrino.client")
+async def test_stats_callback_passed_to_query(mock_client):
+    mock_client.TrinoQuery.return_value.execute.return_value = mock_execute()
+
+    def callback(_stats):
+        pass
+
+    async with connect("sample_trino_cluster:443") as conn:
+        curr = await conn.cursor(stats_callback=callback)
+        await curr.execute("SOME FAKE QUERY")
+
+    _, query_kwargs = mock_client.TrinoQuery.call_args
+    assert query_kwargs["stats_callback"] is callback

@@ -50,7 +50,7 @@ import urllib.parse
 import warnings
 from abc import abstractmethod
 from asyncio import sleep
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -731,6 +731,10 @@ class TrinoRequest:
         # Update the request headers with the additional_http_headers
         http_headers.update(additional_http_headers or {})
 
+        # The Trino protocol expects UTF-8 encoded SQL text. Send the charset explicitly to match the
+        # Trino JDBC client. Callers may still override it via additional_http_headers.
+        http_headers.setdefault(constants.HEADER_CONTENT_TYPE, constants.CONTENT_TYPE_TEXT_UTF8)
+
         return await self._post(
             self.statement_url,
             data=data,
@@ -795,7 +799,15 @@ class TrinoRequest:
         if not http_response.ok:
             await self.raise_response_error(http_response)
 
-        response: dict[str, Any] = await http_response.json(encoding="utf8")
+        try:
+            response: dict[str, Any] = await http_response.json(encoding="utf8")
+        except (aiohttp.ContentTypeError, json.JSONDecodeError, ValueError):
+            # The coordinator occasionally returns 200 with an empty body under load. Surface it as a
+            # connection error with a clear message instead of an opaque JSON decoding failure.
+            body = await http_response.text(encoding="utf8")
+            if not body.strip():
+                raise exceptions.TrinoConnectionError("received empty response from server (status 200)") from None
+            raise
         logger.debug("HTTP %s: %s", http_response.status, response)
         if response.get("error"):
             raise self._process_error(response["error"], response.get("id"))
@@ -869,12 +881,26 @@ async def _prepend_row(row: list[Any], rows: AsyncIterator[list[Any]]) -> AsyncI
         yield remaining
 
 
+async def _achain(*iterables: list[Any] | AsyncIterator[Any]) -> AsyncIterator[Any]:
+    """Chain lists and/or async iterators of rows into a single async iterator without materializing them."""
+    for iterable in iterables:
+        if isinstance(iterable, list):
+            for row in iterable:
+                yield row
+        else:
+            async for row in iterable:
+                yield row
+
+
 class TrinoResult:
     """
-    Represent the result of a Trino query as an iterator on rows.
+    Represent the result of a Trino query as an async iterator on rows.
 
-    This class implements the iterator protocol as a generator type
-    https://docs.python.org/3/library/stdtypes.html#generator-types
+    Iteration state lives on the instance instead of inside a generator. A generator that raises is
+    finalized, so every subsequent ``__anext__`` raises ``StopAsyncIteration`` indistinguishable from
+    normal exhaustion. Keeping the state here lets a transient error (e.g. a failed spooled segment
+    download) propagate to the caller while the iterator stays usable, so a retried ``__anext__``
+    resumes where the failure happened instead of silently dropping the remaining rows.
     """
 
     def __init__(self, query, rows: list[list[Any]] | list[DecodableSegment] | AsyncIterator[list[Any]]):
@@ -882,6 +908,11 @@ class TrinoResult:
         # Initial rows from the first POST request
         self._rows = rows
         self._rownumber = 0
+        # Iterator over the batch of rows currently being served (sync for lists, async otherwise)
+        self._current_batch: Iterator[Any] | AsyncIterator[Any] | None = None
+        self._current_batch_is_async = False
+        # Rows prefetched while the current batch is being served
+        self._next_rows: Any = None
 
     @property
     def rows(self):
@@ -896,25 +927,41 @@ class TrinoResult:
         return self._rownumber
 
     def __aiter__(self):
-        # Easier then manually implementing __anext__
-        async def gen():
-            # A query only transitions to a FINISHED state when the results are fully consumed:
-            # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
-            while not self._query.finished or self._rows is not None:
-                next_rows = await self._query.fetch() if not self._query.finished else None
+        return self
+
+    async def __anext__(self):
+        while True:
+            if self._current_batch is None:
+                if self._query.finished and self._rows is None:
+                    raise StopAsyncIteration
+                # A query only transitions to a FINISHED state when the results are fully consumed:
+                # the reception of the data is acknowledged by fetching the next_uri before the data is
+                # exposed through the dbapi, so prefetch the next page before serving the current one.
+                self._next_rows = await self._query.fetch() if not self._query.finished else None
                 if isinstance(self._rows, list):
-                    for row in self._rows:
-                        self._rownumber += 1
-                        yield row
+                    self._current_batch = iter(self._rows)
+                    self._current_batch_is_async = False
                 elif self._rows is not None:
-                    # Spooling protocol: rows is a lazy async iterator yielding decoded rows
-                    async for row in self._rows:
-                        self._rownumber += 1
-                        yield row
+                    # Spooling protocol: rows is a lazy async iterator yielding decoded rows.
+                    self._current_batch = self._rows.__aiter__()
+                    self._current_batch_is_async = True
+                else:
+                    self._rows = self._next_rows
+                    self._next_rows = None
+                    continue
 
-                self._rows = next_rows
-
-        return gen()
+            try:
+                if self._current_batch_is_async:
+                    row = await self._current_batch.__anext__()
+                else:
+                    row = next(self._current_batch)
+            except (StopIteration, StopAsyncIteration):
+                self._rows = self._next_rows
+                self._next_rows = None
+                self._current_batch = None
+                continue
+            self._rownumber += 1
+            return row
 
 
 class TrinoQuery:
@@ -926,6 +973,7 @@ class TrinoQuery:
         query: str,
         legacy_primitive_types: bool = False,
         fetch_mode: Literal["mapped", "segments"] = "mapped",
+        stats_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self._query_id: str | None = None
         self._stats: dict[Any, Any] = {}
@@ -943,6 +991,7 @@ class TrinoQuery:
         self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: RowMapper | None = None
         self._fetch_mode = fetch_mode
+        self._stats_callback = stats_callback
 
     @property
     def query_id(self) -> str | None:
@@ -1037,6 +1086,19 @@ class TrinoQuery:
                     break
                 except StopAsyncIteration:
                     self._result.rows = []
+
+        # Update statements (INSERT/UPDATE/DELETE/DDL/...) report their affected row count as a single
+        # synthetic row, but Trino still returns a final nextUri that must be consumed for the query to
+        # reach a terminal state. Unlike a SELECT there is no result set to stream, so drain the
+        # remaining pages now. Otherwise closing the cursor without fetching would issue a DELETE against
+        # an already-completed statement, which Trino reports as USER_CANCELED
+        # (https://github.com/trinodb/trino-python-client/issues/601).
+        while self._update_type is not None and not self.finished and not self.cancelled:
+            new_rows = await self.fetch()
+            if isinstance(self._result.rows, list) and isinstance(new_rows, list):
+                self._result.rows += new_rows
+            else:
+                self._result.rows = _achain(self._result.rows, new_rows)
         return self._result
 
     def _update_state(self, status: TrinoStatus) -> None:
@@ -1050,6 +1112,12 @@ class TrinoQuery:
             )
         if status.columns:
             self._columns = status.columns
+        self._report_stats()
+
+    def _report_stats(self) -> None:
+        if self._stats_callback is not None:
+            # Pass a deep copy so the callback cannot mutate internal query state.
+            self._stats_callback(copy.deepcopy(self._stats))
 
     async def fetch(self) -> list[list[Any]] | list[DecodableSegment] | SegmentIterator:
         """Continue fetching data for the current query_id"""
@@ -1095,7 +1163,14 @@ class TrinoQuery:
                 segments.append(InlineSegment(inline_segment))
             elif segment_type == SegmentType.SPOOLED:
                 spooled_segment = cast(_SpooledSegmentTO, segment)
-                segments.append(SpooledSegment(spooled_segment, self._request.unauthenticated()))
+                segments.append(
+                    SpooledSegment(
+                        spooled_segment,
+                        self._request.unauthenticated(),
+                        coordinator_host=self._request._host,
+                        custom_headers=dict(self._request._client_session.headers),
+                    )
+                )
             else:
                 raise ValueError(f"Unsupported segment type: {segment_type}")
 
@@ -1272,10 +1347,14 @@ class SpooledSegment(Segment):
         self,
         segment: _SpooledSegmentTO,
         request: TrinoRequest,
+        coordinator_host: str | None = None,
+        custom_headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(segment)
         self._segment = cast(_SpooledSegmentTO, segment)
         self._request = request
+        self._coordinator_host = coordinator_host
+        self._custom_headers = custom_headers or {}
 
     async def get_data(self) -> bytes:
         http_response = await self._send_spooling_request(self.uri)
@@ -1304,12 +1383,17 @@ class SpooledSegment(Segment):
             logger.error("Failed to acknowledge spooling request for segment %s: %s", self, e)
 
     async def _send_spooling_request(self, uri: str, **kwargs) -> aiohttp.ClientResponse:
-        headers_with_single_value = {}
+        headers: dict[str, str] = {}
+        # Forward user-supplied custom headers (e.g. auth gateway headers) only when the request targets
+        # the Trino coordinator, never external storage (e.g. S3 presigned URLs) where such headers can
+        # break the request. The per-segment protocol headers returned by the coordinator take precedence.
+        if self._coordinator_host is not None and urllib.parse.urlsplit(uri).hostname == self._coordinator_host:
+            headers.update(self._custom_headers)
         for key, values in self.headers.items():
             if len(values) > 1:
                 raise ValueError(f"Header '{key}' contains multiple values: {values}")
-            headers_with_single_value[key] = values[0]
-        return await self._request._get(uri, headers=headers_with_single_value, **kwargs)
+            headers[key] = values[0]
+        return await self._request._get(uri, headers=headers, **kwargs)
 
     def __repr__(self):
         return f"SpooledSegment(metadata={self.metadata})"
@@ -1417,6 +1501,8 @@ class SegmentIterator:
         self._rows: Iterator[list[list[Any]]] = iter([])
         self._finished = False
         self._current_segment: DecodableSegment | None = None
+        # Segment whose decoding failed; retried on the next call instead of being acknowledged and skipped.
+        self._pending_segment: DecodableSegment | None = None
         if (request is not None) != bool(heartbeat_interval):
             raise ValueError("request and heartbeat_interval must be both provided or both omitted")
         self._request = request
@@ -1436,28 +1522,36 @@ class SegmentIterator:
                 await self._load_next_segment()
 
     async def _load_next_segment(self):
-        try:
+        # A segment is acknowledged only after its rows decode successfully. If the previous attempt
+        # failed mid-decode (e.g. the spooled segment download failed) the same segment is retried on
+        # the next call instead of being acknowledged and skipped.
+        if self._pending_segment is None:
             if self._current_segment:
                 segment = self._current_segment.segment
                 if isinstance(segment, SpooledSegment):
                     await segment.acknowledge()
+                self._current_segment = None
+            try:
+                self._pending_segment = next(self._segments)
+            except StopIteration:
+                self._finished = True
+                return
 
-            self._current_segment = next(self._segments)
-            if self._decoder is None:
-                self._decoder = SegmentDecoder(
-                    CompressedQueryDataDecoderFactory(self._mapper).create(self._current_segment.encoding)
-                )
-            segment = self._current_segment.segment
-            if isinstance(segment, SpooledSegment) and self._request and self._heartbeat_interval:
-                # Downloading a spooled segment may take a while. Send heartbeats meanwhile so the
-                # coordinator doesn't think we lost interest and close the query.
-                async with _RequestHeartbeat(self._request, self._heartbeat_interval):
-                    rows = await self._decoder.decode(segment)
-            else:
+        if self._decoder is None:
+            self._decoder = SegmentDecoder(
+                CompressedQueryDataDecoderFactory(self._mapper).create(self._pending_segment.encoding)
+            )
+        segment = self._pending_segment.segment
+        if isinstance(segment, SpooledSegment) and self._request and self._heartbeat_interval:
+            # Downloading a spooled segment may take a while. Send heartbeats meanwhile so the
+            # coordinator doesn't think we lost interest and close the query.
+            async with _RequestHeartbeat(self._request, self._heartbeat_interval):
                 rows = await self._decoder.decode(segment)
-            self._rows = iter(rows)
-        except StopIteration:
-            self._finished = True
+        else:
+            rows = await self._decoder.decode(segment)
+        self._rows = iter(rows)
+        self._current_segment = self._pending_segment
+        self._pending_segment = None
 
 
 class SegmentDecoder:

@@ -132,7 +132,7 @@ async def test_request_headers(mock_get_and_post):
             http_scheme="http",
         )
 
-    def assert_headers(headers):
+    def assert_headers(headers, expected_len):
         assert headers[constants.HEADER_CATALOG] == catalog
         assert headers[constants.HEADER_SCHEMA] == schema
         assert headers[constants.HEADER_SOURCE] == source
@@ -152,15 +152,17 @@ async def test_request_headers(mock_get_and_post):
         assert headers["User-Agent"] == f"{constants.CLIENT_NAME}/{__version__}"
         assert headers[constants.HEADER_ENCODING] == encoding
         assert constants.HEADER_TRANSACTION not in headers
-        assert len(headers.keys()) == 13
+        assert len(headers.keys()) == expected_len
 
     await req.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers(post_kwargs["headers"])
+    # POST carries the SQL body, so it additionally sends a Content-Type header.
+    assert post_kwargs["headers"][constants.HEADER_CONTENT_TYPE] == constants.CONTENT_TYPE_TEXT_UTF8
+    assert_headers(post_kwargs["headers"], 14)
 
     await req.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers(get_kwargs["headers"])
+    assert_headers(get_kwargs["headers"], 13)
 
 
 @pytest.mark.asyncio
@@ -214,6 +216,7 @@ async def test_additional_request_post_headers(mock_get_and_post):
 
     combined_headers = req.http_headers
     combined_headers.update(additional_headers)
+    combined_headers.setdefault(constants.HEADER_CONTENT_TYPE, constants.CONTENT_TYPE_TEXT_UTF8)
 
     await req.post(sql, additional_headers)
 
