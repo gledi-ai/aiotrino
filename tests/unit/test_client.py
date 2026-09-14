@@ -21,6 +21,7 @@ import aiohttp
 import aiohttp.client_exceptions
 import pytest
 from mocket.plugins.httpretty import async_httprettified, httpretty
+from multidict import CIMultiDict, CIMultiDictProxy
 from tzlocal import get_localzone_name  # type: ignore
 from yarl import URL
 
@@ -1067,3 +1068,14 @@ async def test_empty_200_exhausting_attempts_raises_connection_error(monkeypatch
     assert recorder.calls == 3
     with pytest.raises(TrinoConnectionError, match="received empty response"):
         await req.process(response)
+
+
+async def test_process_empty_200_json_content_type_raises_connection_error():
+    http_resp = create_response()
+    http_resp.status = 200
+    http_resp._headers = CIMultiDictProxy(CIMultiDict({"Content-Type": "application/json"}))
+    http_resp._body = b""
+    req = TrinoRequest(host="coordinator", port=8080, client_session=ClientSession(user="test"))
+
+    with pytest.raises(TrinoConnectionError, match="received empty response"):
+        await req.process(http_resp)

@@ -801,15 +801,16 @@ class TrinoRequest:
         if not http_response.ok:
             await self.raise_response_error(http_response)
 
+        # The coordinator occasionally returns 200 with an empty body under load. aiohttp's json() returns
+        # None for an empty body with a JSON content type and raises for any other content type.
         try:
-            response: dict[str, Any] = await http_response.json(encoding="utf8")
+            response: dict[str, Any] | None = await http_response.json(encoding="utf8")
         except (aiohttp.ContentTypeError, json.JSONDecodeError, ValueError):
-            # The coordinator occasionally returns 200 with an empty body under load. Surface it as a
-            # connection error with a clear message instead of an opaque JSON decoding failure.
-            body = await http_response.text(encoding="utf8")
-            if not body.strip():
-                raise exceptions.TrinoConnectionError("received empty response from server (status 200)") from None
-            raise
+            if (await http_response.text(encoding="utf8")).strip():
+                raise
+            response = None
+        if response is None:
+            raise exceptions.TrinoConnectionError("received empty response from server (status 200)")
         logger.debug("HTTP %s: %s", http_response.status, response)
         if response.get("error"):
             raise self._process_error(response["error"], response.get("id"))
