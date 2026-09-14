@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import json
 import time
 import urllib
 from unittest import mock
@@ -34,6 +35,7 @@ from aiotrino.client import (
     _retry_with,
     _RetryWithExponentialBackoff,
 )
+from aiotrino.exceptions import TrinoConnectionError
 
 
 def create_response() -> aiohttp.ClientResponse:
@@ -976,3 +978,92 @@ def test_request_with_invalid_timezone(mock_get_and_post):
             client_session=ClientSession(user="test_user", timezone="INVALID_TIMEZONE"),
         )
     assert str(zinfo_error.value).startswith("'No time zone found with key")
+
+
+class FakeResponse:
+    def __init__(self, method, url, body=b"", status=200):
+        self.method = method
+        self.url = URL(url)
+        self.status = status
+        self.ok = status < 400
+        self.headers = {}
+        self._body = body
+
+    async def read(self):
+        return self._body
+
+    async def text(self, encoding=None):
+        return self._body.decode()
+
+    async def json(self, encoding=None):
+        return json.loads(self._body)
+
+
+class ResponseSequence:
+    def __init__(self, *responses):
+        self.__name__ = "ResponseSequence"
+        self._responses = list(responses)
+        self.calls = 0
+
+    async def __call__(self, *args, **kwargs):
+        self.calls += 1
+        return self._responses.pop(0) if len(self._responses) > 1 else self._responses[0]
+
+
+def _fast_retry_request(monkeypatch, method, recorder, max_attempts=3):
+    monkeypatch.setattr(TrinoRequest.http.ClientSession, method, recorder)
+    req = TrinoRequest(
+        host="coordinator", port=8080, client_session=ClientSession(user="test"), max_attempts=max_attempts
+    )
+    req._handle_retry = _RetryWithExponentialBackoff(base=0)
+    req.max_attempts = max_attempts
+    return req
+
+
+STATEMENT_URL = "http://coordinator:8080/v1/statement"
+NEXT_URI = "http://coordinator:8080/v1/statement/executing/20240101_000000_00000_abcde/xyz/1"
+
+
+async def test_empty_200_post_statement_is_retried(monkeypatch):
+    good = FakeResponse("POST", STATEMENT_URL, body=b'{"id": "x"}')
+    recorder = ResponseSequence(FakeResponse("POST", STATEMENT_URL), good)
+    req = _fast_retry_request(monkeypatch, "post", recorder)
+
+    assert await req.post("SELECT 1") is good
+    assert recorder.calls == 2
+
+
+async def test_empty_200_get_next_uri_is_retried(monkeypatch):
+    good = FakeResponse("GET", NEXT_URI, body=b'{"id": "x"}')
+    recorder = ResponseSequence(FakeResponse("GET", NEXT_URI), good)
+    req = _fast_retry_request(monkeypatch, "get", recorder)
+
+    assert await req.get(NEXT_URI) is good
+    assert recorder.calls == 2
+
+
+async def test_empty_200_head_heartbeat_not_retried(monkeypatch):
+    recorder = ResponseSequence(FakeResponse("HEAD", NEXT_URI))
+    req = _fast_retry_request(monkeypatch, "head", recorder)
+
+    await req.head(NEXT_URI)
+    assert recorder.calls == 1
+
+
+async def test_empty_200_spooling_ack_not_retried(monkeypatch):
+    ack_uri = "http://coordinator:8080/v1/spooled/segments/abc/ack"
+    recorder = ResponseSequence(FakeResponse("GET", ack_uri))
+    req = _fast_retry_request(monkeypatch, "get", recorder)
+
+    await req._get(ack_uri)
+    assert recorder.calls == 1
+
+
+async def test_empty_200_exhausting_attempts_raises_connection_error(monkeypatch):
+    recorder = ResponseSequence(FakeResponse("POST", STATEMENT_URL))
+    req = _fast_retry_request(monkeypatch, "post", recorder)
+
+    response = await req.post("SELECT 1")
+    assert recorder.calls == 3
+    with pytest.raises(TrinoConnectionError, match="received empty response"):
+        await req.process(response)

@@ -41,6 +41,7 @@ import base64
 import contextlib
 import copy
 import functools
+import inspect
 import json
 import os
 import random
@@ -703,6 +704,7 @@ class TrinoRequest:
             conditions=(
                 # need retry when there is no exception but the status code is 429, 502, 503, or 504
                 lambda response: getattr(response, "status", None) in (429, 502, 503, 504),
+                _is_empty_statement_response,
             ),
             max_attempts=self._max_attempts,
         )
@@ -1208,6 +1210,30 @@ class TrinoQuery:
         return self._cancelled
 
 
+async def _any_condition(conditions, result) -> bool:
+    for guard in conditions:
+        verdict = guard(result)
+        if inspect.isawaitable(verdict):
+            verdict = await verdict
+        if verdict:
+            return True
+    return False
+
+
+async def _is_empty_statement_response(response) -> bool:
+    """The coordinator occasionally returns 200 with an empty body under load (trino-python-client #603).
+
+    Only statement requests (POST /v1/statement, GET next_uri) are retried: an empty 200 is the normal
+    reply for the heartbeat HEAD and the spooled-segment ack GET.
+    """
+    return (
+        getattr(response, "status", None) == 200
+        and response.method in ("GET", "POST")
+        and response.url.path.startswith(constants.URL_STATEMENT_PATH)
+        and not (await response.read()).strip()
+    )
+
+
 def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
     def wrapper(func):
         @functools.wraps(func)
@@ -1217,7 +1243,7 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
             for attempt in range(1, max_attempts + 1):
                 try:
                     result = await func(*args, **kwargs)
-                    if any(guard(result) for guard in conditions):
+                    if await _any_condition(conditions, result):
                         if result.status == 429 and "Retry-After" in result.headers:
                             retry_after = _parse_retry_after_header(result.headers.get("Retry-After"))
                             handle_retry_sleep = _RetryAfterSleep(retry_after)
