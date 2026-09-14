@@ -15,7 +15,7 @@ from aiotrino.constants import DEFAULT_PORT
 GARAGE_ACCESS_KEY = "GKAIOTRINOTESTKEY"
 GARAGE_SECRET_KEY = "aiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrino"
 GARAGE_BUCKET = "spooling"
-GARAGE_IMAGE = "dxflrs/garage:v2.3.0"
+GARAGE_IMAGE = "dxflrs/garage:v2.4.1"
 GARAGE_S3_PORT = 3900
 
 TRINO_VERSION = os.environ.get("TRINO_VERSION") or "latest"
