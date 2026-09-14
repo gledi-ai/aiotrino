@@ -9,7 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aiohttp import ClientSession
@@ -17,6 +17,7 @@ from aiohttp import ClientSession
 import aiotrino.exceptions
 from aiotrino import constants
 from aiotrino.auth import BasicAuthentication
+from aiotrino.client import TrinoStatus
 from aiotrino.dbapi import Connection, connect
 
 
@@ -179,3 +180,66 @@ async def test_stats_callback_passed_to_query(mock_client):
 
     _, query_kwargs = mock_client.TrinoQuery.call_args
     assert query_kwargs["stats_callback"] is callback
+
+
+BIGINT_COLUMNS = [{"name": "rows", "type": "bigint", "typeSignature": {"rawType": "bigint", "arguments": []}}]
+
+
+def _status(next_uri, rows, update_type=None, update_count=None):
+    return TrinoStatus(
+        id="q1",
+        stats={},
+        warnings=[],
+        info_uri="http://coordinator/query.html?q1",
+        next_uri=next_uri,
+        update_type=update_type,
+        update_count=update_count,
+        rows=rows,
+        columns=BIGINT_COLUMNS,
+    )
+
+
+async def _cursor_with_fake_request(statuses):
+    conn = connect("coordinator", user="test")
+    cur = await conn.cursor()
+    cur._request.post = AsyncMock(return_value=Mock())
+    cur._request.get = AsyncMock(return_value=Mock())
+    cur._request.delete = AsyncMock(return_value=Mock(status=204))
+    cur._request.process = AsyncMock(side_effect=statuses)
+    return conn, cur
+
+
+@pytest.mark.asyncio
+async def test_cursor_close_does_not_cancel_finished_update_query():
+    """Regression for https://github.com/trinodb/trino-python-client/issues/601: closing a cursor
+    after an update statement must not DELETE an already-completed query."""
+    conn, cur = await _cursor_with_fake_request(
+        [
+            _status("http://coordinator/v1/statement/q1/1", []),
+            _status("http://coordinator/v1/statement/q1/2", [[1000]], "INSERT", 1000),
+            _status(None, [], "INSERT", 1000),
+        ]
+    )
+    async with conn:
+        await cur.execute("INSERT INTO t VALUES (1)")
+        assert cur._query.finished is True
+        assert cur.rowcount == 1000
+        await cur.close()
+
+    cur._request.delete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cursor_close_cancels_unfinished_query():
+    conn, cur = await _cursor_with_fake_request(
+        [
+            _status("http://coordinator/v1/statement/q1/1", []),
+            _status("http://coordinator/v1/statement/q1/2", [[1]]),
+        ]
+    )
+    async with conn:
+        await cur.execute("SELECT x FROM t")
+        assert cur._query.finished is False
+        await cur.close()
+
+    cur._request.delete.assert_awaited_once_with("http://coordinator/v1/statement/q1/2")

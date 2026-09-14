@@ -13,6 +13,8 @@ import base64
 import json
 from unittest import mock
 
+import pytest
+
 import aiotrino.client
 from aiotrino.client import (
     ClientSession,
@@ -318,3 +320,75 @@ async def test_spooled_segment_forwards_custom_headers_only_to_coordinator():
         _, kwargs = request._get.call_args
         assert "X-Auth-Gateway" not in kwargs["headers"]
         assert kwargs["headers"]["x-amz-meta"] == "v"
+
+
+async def test_result_iterator_reraises_persistent_error_instead_of_stopping():
+    """A persistent error must keep surfacing instead of turning into StopAsyncIteration, which the
+    dbapi would report as a normally exhausted result set."""
+    query = mock.Mock()
+    query.finished = True
+
+    class FailingRows:
+        def __init__(self):
+            self._count = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self._count >= 3:
+                raise OSError("segment download failed")
+            self._count += 1
+            return [self._count]
+
+    iterator = TrinoResult(query, FailingRows()).__aiter__()
+    assert [await iterator.__anext__() for _ in range(3)] == [[1], [2], [3]]
+    for _ in range(2):
+        with pytest.raises(OSError):
+            await iterator.__anext__()
+
+
+async def test_result_iterator_resumes_after_transient_fetch_error():
+    class FlakyQuery:
+        def __init__(self):
+            self.finished = False
+            self._fetches = 0
+
+        async def fetch(self):
+            self._fetches += 1
+            if self._fetches == 1:
+                raise OSError("connection reset")
+            self.finished = True
+            return [[2]]
+
+    iterator = TrinoResult(FlakyQuery(), [[1]]).__aiter__()
+    # The next batch is prefetched before the first row is served, so the fetch error surfaces first.
+    with pytest.raises(OSError):
+        await iterator.__anext__()
+    assert await iterator.__anext__() == [1]
+    assert await iterator.__anext__() == [2]
+    with pytest.raises(StopAsyncIteration):
+        await iterator.__anext__()
+
+
+async def test_spooled_segment_header_takes_precedence_over_custom_header():
+    session = ClientSession(user="test", encoding="json")
+    async with TrinoRequest(host="coordinator", port=8080, client_session=session, http_scheme="http") as request:
+        segment_to = {
+            "type": "spooled",
+            "uri": "http://coordinator/v1/spooled/segment1",
+            "ackUri": "http://coordinator/v1/spooled/segment1/ack",
+            "metadata": {"rowsCount": 1},
+            "headers": {"X-Trino-Spooling-Token": ["token-abc"]},
+        }
+        segment = aiotrino.client.SpooledSegment(
+            segment_to,
+            request,
+            coordinator_host="coordinator",
+            custom_headers={"X-Trino-Spooling-Token": "should-not-be-used"},
+        )
+        request._get = mock.AsyncMock(return_value=mock.Mock())
+
+        await segment._send_spooling_request(segment.uri)
+        _, kwargs = request._get.call_args
+        assert kwargs["headers"]["X-Trino-Spooling-Token"] == "token-abc"

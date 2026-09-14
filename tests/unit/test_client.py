@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import copy
 import json
 import time
 import urllib
@@ -1079,3 +1080,33 @@ async def test_process_empty_200_json_content_type_raises_connection_error():
 
     with pytest.raises(TrinoConnectionError, match="received empty response"):
         await req.process(http_resp)
+
+
+async def test_post_content_type_can_be_overridden(mock_get_and_post):
+    _, post = mock_get_and_post
+    req = TrinoRequest(host="coordinator", port=8080, client_session=ClientSession(user="test"))
+
+    await req.post("SELECT 1", additional_http_headers={constants.HEADER_CONTENT_TYPE: "application/xyz"})
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_CONTENT_TYPE] == "application/xyz"
+
+
+async def test_stats_callback_cannot_mutate_query_stats():
+    received = []
+
+    def stats_callback(stats):
+        received.append(stats)
+        stats["state"] = "MUTATED"
+        stats["rootStage"]["subStages"][0]["stageId"] = "999"
+
+    async with TrinoRequest(host="coordinator", port=8080, client_session=ClientSession(user="test")) as request:
+        query = TrinoQuery(request, query="SELECT 1", stats_callback=stats_callback)
+        original = {"queryId": "q1", "state": "RUNNING", "rootStage": {"stageId": "0", "subStages": [{"stageId": "1"}]}}
+        query._stats = copy.deepcopy(original)
+
+        query._report_stats()
+
+    assert received == [
+        {"queryId": "q1", "state": "MUTATED", "rootStage": {"stageId": "0", "subStages": [{"stageId": "999"}]}}
+    ]
+    assert query.stats == original
