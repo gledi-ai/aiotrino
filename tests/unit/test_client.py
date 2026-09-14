@@ -10,6 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import copy
+import json
 import time
 import urllib
 from unittest import mock
@@ -20,6 +22,7 @@ import aiohttp
 import aiohttp.client_exceptions
 import pytest
 from mocket.plugins.httpretty import async_httprettified, httpretty
+from multidict import CIMultiDict, CIMultiDictProxy
 from tzlocal import get_localzone_name  # type: ignore
 from yarl import URL
 
@@ -34,6 +37,7 @@ from aiotrino.client import (
     _retry_with,
     _RetryWithExponentialBackoff,
 )
+from aiotrino.exceptions import TrinoConnectionError
 
 
 def create_response() -> aiohttp.ClientResponse:
@@ -132,7 +136,7 @@ async def test_request_headers(mock_get_and_post):
             http_scheme="http",
         )
 
-    def assert_headers(headers):
+    def assert_headers(headers, expected_len):
         assert headers[constants.HEADER_CATALOG] == catalog
         assert headers[constants.HEADER_SCHEMA] == schema
         assert headers[constants.HEADER_SOURCE] == source
@@ -152,15 +156,17 @@ async def test_request_headers(mock_get_and_post):
         assert headers["User-Agent"] == f"{constants.CLIENT_NAME}/{__version__}"
         assert headers[constants.HEADER_ENCODING] == encoding
         assert constants.HEADER_TRANSACTION not in headers
-        assert len(headers.keys()) == 13
+        assert len(headers.keys()) == expected_len
 
     await req.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers(post_kwargs["headers"])
+    # POST carries the SQL body, so it additionally sends a Content-Type header.
+    assert post_kwargs["headers"][constants.HEADER_CONTENT_TYPE] == constants.CONTENT_TYPE_TEXT_UTF8
+    assert_headers(post_kwargs["headers"], 14)
 
     await req.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers(get_kwargs["headers"])
+    assert_headers(get_kwargs["headers"], 13)
 
 
 @pytest.mark.asyncio
@@ -214,6 +220,7 @@ async def test_additional_request_post_headers(mock_get_and_post):
 
     combined_headers = req.http_headers
     combined_headers.update(additional_headers)
+    combined_headers.setdefault(constants.HEADER_CONTENT_TYPE, constants.CONTENT_TYPE_TEXT_UTF8)
 
     await req.post(sql, additional_headers)
 
@@ -973,3 +980,133 @@ def test_request_with_invalid_timezone(mock_get_and_post):
             client_session=ClientSession(user="test_user", timezone="INVALID_TIMEZONE"),
         )
     assert str(zinfo_error.value).startswith("'No time zone found with key")
+
+
+class FakeResponse:
+    def __init__(self, method, url, body=b"", status=200):
+        self.method = method
+        self.url = URL(url)
+        self.status = status
+        self.ok = status < 400
+        self.headers = {}
+        self._body = body
+
+    async def read(self):
+        return self._body
+
+    async def text(self, encoding=None):
+        return self._body.decode()
+
+    async def json(self, encoding=None):
+        return json.loads(self._body)
+
+
+class ResponseSequence:
+    def __init__(self, *responses):
+        self.__name__ = "ResponseSequence"
+        self._responses = list(responses)
+        self.calls = 0
+
+    async def __call__(self, *args, **kwargs):
+        self.calls += 1
+        return self._responses.pop(0) if len(self._responses) > 1 else self._responses[0]
+
+
+def _fast_retry_request(monkeypatch, method, recorder, max_attempts=3):
+    monkeypatch.setattr(TrinoRequest.http.ClientSession, method, recorder)
+    req = TrinoRequest(
+        host="coordinator", port=8080, client_session=ClientSession(user="test"), max_attempts=max_attempts
+    )
+    req._handle_retry = _RetryWithExponentialBackoff(base=0)
+    req.max_attempts = max_attempts
+    return req
+
+
+STATEMENT_URL = "http://coordinator:8080/v1/statement"
+NEXT_URI = "http://coordinator:8080/v1/statement/executing/20240101_000000_00000_abcde/xyz/1"
+
+
+async def test_empty_200_post_statement_is_retried(monkeypatch):
+    good = FakeResponse("POST", STATEMENT_URL, body=b'{"id": "x"}')
+    recorder = ResponseSequence(FakeResponse("POST", STATEMENT_URL), good)
+    req = _fast_retry_request(monkeypatch, "post", recorder)
+
+    assert await req.post("SELECT 1") is good
+    assert recorder.calls == 2
+
+
+async def test_empty_200_get_next_uri_is_retried(monkeypatch):
+    good = FakeResponse("GET", NEXT_URI, body=b'{"id": "x"}')
+    recorder = ResponseSequence(FakeResponse("GET", NEXT_URI), good)
+    req = _fast_retry_request(monkeypatch, "get", recorder)
+
+    assert await req.get(NEXT_URI) is good
+    assert recorder.calls == 2
+
+
+async def test_empty_200_head_heartbeat_not_retried(monkeypatch):
+    recorder = ResponseSequence(FakeResponse("HEAD", NEXT_URI))
+    req = _fast_retry_request(monkeypatch, "head", recorder)
+
+    await req.head(NEXT_URI)
+    assert recorder.calls == 1
+
+
+async def test_empty_200_spooling_ack_not_retried(monkeypatch):
+    ack_uri = "http://coordinator:8080/v1/spooled/segments/abc/ack"
+    recorder = ResponseSequence(FakeResponse("GET", ack_uri))
+    req = _fast_retry_request(monkeypatch, "get", recorder)
+
+    await req._get(ack_uri)
+    assert recorder.calls == 1
+
+
+async def test_empty_200_exhausting_attempts_raises_connection_error(monkeypatch):
+    recorder = ResponseSequence(FakeResponse("POST", STATEMENT_URL))
+    req = _fast_retry_request(monkeypatch, "post", recorder)
+
+    response = await req.post("SELECT 1")
+    assert recorder.calls == 3
+    with pytest.raises(TrinoConnectionError, match="received empty response"):
+        await req.process(response)
+
+
+async def test_process_empty_200_json_content_type_raises_connection_error():
+    http_resp = create_response()
+    http_resp.status = 200
+    http_resp._headers = CIMultiDictProxy(CIMultiDict({"Content-Type": "application/json"}))
+    http_resp._body = b""
+    req = TrinoRequest(host="coordinator", port=8080, client_session=ClientSession(user="test"))
+
+    with pytest.raises(TrinoConnectionError, match="received empty response"):
+        await req.process(http_resp)
+
+
+async def test_post_content_type_can_be_overridden(mock_get_and_post):
+    _, post = mock_get_and_post
+    req = TrinoRequest(host="coordinator", port=8080, client_session=ClientSession(user="test"))
+
+    await req.post("SELECT 1", additional_http_headers={constants.HEADER_CONTENT_TYPE: "application/xyz"})
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_CONTENT_TYPE] == "application/xyz"
+
+
+async def test_stats_callback_cannot_mutate_query_stats():
+    received = []
+
+    def stats_callback(stats):
+        received.append(stats)
+        stats["state"] = "MUTATED"
+        stats["rootStage"]["subStages"][0]["stageId"] = "999"
+
+    async with TrinoRequest(host="coordinator", port=8080, client_session=ClientSession(user="test")) as request:
+        query = TrinoQuery(request, query="SELECT 1", stats_callback=stats_callback)
+        original = {"queryId": "q1", "state": "RUNNING", "rootStage": {"stageId": "0", "subStages": [{"stageId": "1"}]}}
+        query._stats = copy.deepcopy(original)
+
+        query._report_stats()
+
+    assert received == [
+        {"queryId": "q1", "state": "MUTATED", "rootStage": {"stageId": "0", "subStages": [{"stageId": "999"}]}}
+    ]
+    assert query.stats == original

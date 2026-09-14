@@ -2,9 +2,10 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from sqlalchemy import exc
 from sqlalchemy.engine.url import URL, make_url
 
-from aiotrino.auth import BasicAuthentication
+from aiotrino.auth import BasicAuthentication, JWTAuthentication
 from aiotrino.dbapi import Connection
 from aiotrino.sqlalchemy import URL as trino_url
 from aiotrino.sqlalchemy.dialect import AIOTrinoDialect
@@ -289,6 +290,47 @@ def test_trino_connection_basic_auth():
     assert cparams["auth"]._password == password
 
 
+def test_create_connect_args_does_not_double_decode_password():
+    # SQLAlchemy already decodes %2B to '+'. The dialect must not decode it again into a space.
+    dialect = AIOTrinoDialect()
+    url = make_url("aiotrino://user:pass%2Bword@localhost:8080/system")
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams["user"] == "user"
+    assert cparams["auth"]._password == "pass+word"
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["https://example.com", "example.com:8080", "example.com/path", "user:pw@example.com", "[::1"],
+)
+def test_url_rejects_non_hostname_host(host):
+    with pytest.raises(exc.ArgumentError, match="host must be a hostname only"):
+        trino_url(host=host)
+
+
+def test_url_accepts_plain_host():
+    assert "example.com" in trino_url(host="example.com")
+
+
+def test_get_columns_includes_comment():
+    dialect = AIOTrinoDialect()
+    record = mock.Mock(
+        column_name="id",
+        data_type="integer",
+        column_default=None,
+        is_nullable="YES",
+        comment="the id column",
+    )
+    connection = mock.Mock()
+    connection.execute.return_value = [record]
+
+    columns = dialect._get_columns(connection, "t", schema="s")
+
+    assert columns[0]["name"] == "id"
+    assert columns[0]["comment"] == "the id column"
+
+
 # def test_trino_connection_jwt_auth():
 #     dialect = AIOTrinoDialect()
 #     access_token = 'sample-token'
@@ -332,3 +374,45 @@ def test_trino_connection_basic_auth():
 #     _, cparams = dialect.create_connect_args(url)
 
 #     assert isinstance(cparams['auth'], OAuth2Authentication)
+
+
+def test_trino_connection_query_params_preserve_plus():
+    # SQLAlchemy already decodes query values, so a '+' round-tripped through the URL builder must
+    # survive. Catalog and schema come from url.database, which SQLAlchemy leaves url-encoded.
+    dialect = AIOTrinoDialect()
+    url = make_url(
+        trino_url(
+            host="host",
+            user="us+er",
+            password="pa+ss",
+            catalog="ca+t",
+            schema="sc+h",
+            source="so+urce",
+            session_properties={"prop": "1+1"},
+            http_headers={"x-trino": "a+b"},
+            extra_credential=[("cred", "va+lue")],
+            client_tags=["ta+g"],
+            roles={"system": "ro+le"},
+        )
+    )
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams["user"] == "us+er"
+    assert cparams["auth"]._password == "pa+ss"
+    assert cparams["catalog"] == "ca+t"
+    assert cparams["schema"] == "sc+h"
+    assert cparams["source"] == "so+urce"
+    assert cparams["session_properties"] == {"prop": "1+1"}
+    assert cparams["http_headers"] == {"x-trino": "a+b"}
+    assert cparams["extra_credential"] == [("cred", "va+lue")]
+    assert cparams["client_tags"] == ["ta+g"]
+    assert cparams["roles"] == {"system": "ro+le"}
+
+
+def test_trino_connection_jwt_auth_preserves_plus():
+    dialect = AIOTrinoDialect()
+    url = make_url("aiotrino://host/?access_token=tok%2Ben")
+    _, cparams = dialect.create_connect_args(url)
+
+    assert isinstance(cparams["auth"], JWTAuthentication)
+    assert cparams["auth"].token == "tok+en"

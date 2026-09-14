@@ -9,12 +9,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aiohttp import ClientSession
 
+import aiotrino.exceptions
 from aiotrino import constants
+from aiotrino.auth import BasicAuthentication
+from aiotrino.client import TrinoStatus
 from aiotrino.dbapi import Connection, connect
 
 
@@ -150,3 +153,93 @@ async def test_description_is_none_when_cursor_is_not_executed():
     connection = Connection("sample_trino_cluster:443")
     async with await connection.cursor() as cursor:
         assert await cursor.get_description() is None
+
+
+@pytest.mark.asyncio
+async def test_error_when_auth_over_http():
+    with pytest.raises(aiotrino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection("mytrinoserver.domain", http_scheme=constants.HTTP, auth=BasicAuthentication("u", "p"))
+
+
+@pytest.mark.asyncio
+async def test_no_error_when_auth_over_https():
+    Connection("mytrinoserver.domain", http_scheme=constants.HTTPS, auth=BasicAuthentication("u", "p"))
+
+
+@pytest.mark.asyncio
+@patch("aiotrino.dbapi.aiotrino.client")
+async def test_stats_callback_passed_to_query(mock_client):
+    mock_client.TrinoQuery.return_value.execute.return_value = mock_execute()
+
+    def callback(_stats):
+        pass
+
+    async with connect("sample_trino_cluster:443") as conn:
+        curr = await conn.cursor(stats_callback=callback)
+        await curr.execute("SOME FAKE QUERY")
+
+    _, query_kwargs = mock_client.TrinoQuery.call_args
+    assert query_kwargs["stats_callback"] is callback
+
+
+BIGINT_COLUMNS = [{"name": "rows", "type": "bigint", "typeSignature": {"rawType": "bigint", "arguments": []}}]
+
+
+def _status(next_uri, rows, update_type=None, update_count=None):
+    return TrinoStatus(
+        id="q1",
+        stats={},
+        warnings=[],
+        info_uri="http://coordinator/query.html?q1",
+        next_uri=next_uri,
+        update_type=update_type,
+        update_count=update_count,
+        rows=rows,
+        columns=BIGINT_COLUMNS,
+    )
+
+
+async def _cursor_with_fake_request(statuses):
+    conn = connect("coordinator", user="test")
+    cur = await conn.cursor()
+    cur._request.post = AsyncMock(return_value=Mock())
+    cur._request.get = AsyncMock(return_value=Mock())
+    cur._request.delete = AsyncMock(return_value=Mock(status=204))
+    cur._request.process = AsyncMock(side_effect=statuses)
+    return conn, cur
+
+
+@pytest.mark.asyncio
+async def test_cursor_close_does_not_cancel_finished_update_query():
+    """Regression for https://github.com/trinodb/trino-python-client/issues/601: closing a cursor
+    after an update statement must not DELETE an already-completed query."""
+    conn, cur = await _cursor_with_fake_request(
+        [
+            _status("http://coordinator/v1/statement/q1/1", []),
+            _status("http://coordinator/v1/statement/q1/2", [[1000]], "INSERT", 1000),
+            _status(None, [], "INSERT", 1000),
+        ]
+    )
+    async with conn:
+        await cur.execute("INSERT INTO t VALUES (1)")
+        assert cur._query.finished is True
+        assert cur.rowcount == 1000
+        await cur.close()
+
+    cur._request.delete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cursor_close_cancels_unfinished_query():
+    conn, cur = await _cursor_with_fake_request(
+        [
+            _status("http://coordinator/v1/statement/q1/1", []),
+            _status("http://coordinator/v1/statement/q1/2", [[1]]),
+        ]
+    )
+    async with conn:
+        await cur.execute("SELECT x FROM t")
+        assert cur._query.finished is False
+        await cur.close()
+
+    cur._request.delete.assert_awaited_once_with("http://coordinator/v1/statement/q1/2")

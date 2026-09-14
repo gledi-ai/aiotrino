@@ -24,6 +24,7 @@ import datetime
 import math
 import uuid
 from collections import OrderedDict
+from collections.abc import Callable
 from decimal import Decimal
 from threading import Lock
 from time import time
@@ -196,6 +197,12 @@ class Connection:
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
         self.http_scheme = _resolve_http_scheme(parsed_host, port, http_scheme)
         self.port = _resolve_port(parsed_host, port, self.http_scheme)
+        if auth is not None and self.http_scheme == constants.HTTP:
+            raise aiotrino.exceptions.TrinoAuthError(
+                "TLS/SSL is required for authentication. "
+                "To use HTTPS, specify 'https://' in the host URL (which takes precedence over "
+                "http_scheme), or, if the host URL has no scheme, pass http_scheme='https'."
+            )
         self.user = user
         self.source = source
         self.catalog = catalog
@@ -300,7 +307,12 @@ class Connection:
             request_timeout=self.request_timeout,
         )
 
-    async def cursor(self, cursor_style: str = "row", legacy_primitive_types: bool | None = None) -> Cursor:
+    async def cursor(
+        self,
+        cursor_style: str = "row",
+        legacy_primitive_types: bool | None = None,
+        stats_callback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> Cursor:
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT and self.transaction is None:
             await self.start_transaction()
@@ -319,6 +331,7 @@ class Connection:
             legacy_primitive_types=(
                 legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types
             ),
+            stats_callback=stats_callback,
         )
 
     async def _use_legacy_prepared_statements(self):
@@ -398,6 +411,7 @@ class Cursor:
         connection: Connection,
         request: aiotrino.client.TrinoRequest,
         legacy_primitive_types: bool = False,
+        stats_callback: Callable[[dict[str, Any]], None] | None = None,
     ):
         if not isinstance(connection, Connection):
             raise ValueError(f"connection must be a Connection object: {type(connection)}")
@@ -408,6 +422,7 @@ class Cursor:
         self._iterator = None
         self._query = None
         self._legacy_primitive_types = legacy_primitive_types
+        self._stats_callback = stats_callback
 
     def __aiter__(self):
         return self._iterator
@@ -509,7 +524,12 @@ class Cursor:
 
     def _execute_prepared_statement(self, statement_name: str, params) -> aiotrino.client.TrinoQuery:
         sql = "EXECUTE " + statement_name + " USING " + ",".join(map(self._format_prepared_param, params))
-        return aiotrino.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
+        return aiotrino.client.TrinoQuery(
+            self._request,
+            query=sql,
+            legacy_primitive_types=self._legacy_primitive_types,
+            stats_callback=self._stats_callback,
+        )
 
     def _execute_immediate_statement(self, statement: str, params) -> aiotrino.client.TrinoQuery:
         """
@@ -525,7 +545,10 @@ class Cursor:
             + ",".join(map(self._format_prepared_param, params))
         )
         return aiotrino.client.TrinoQuery(
-            self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types
+            self.connection._create_request(),
+            query=sql,
+            legacy_primitive_types=self._legacy_primitive_types,
+            stats_callback=self._stats_callback,
         )
 
     def _format_prepared_param(self, param):
@@ -644,7 +667,10 @@ class Cursor:
 
         else:
             self._query = aiotrino.client.TrinoQuery(
-                self._request, query=operation, legacy_primitive_types=self._legacy_primitive_types
+                self._request,
+                query=operation,
+                legacy_primitive_types=self._legacy_primitive_types,
+                stats_callback=self._stats_callback,
             )
             self._iterator = aiter(await self._query.execute())
         return self
@@ -759,8 +785,16 @@ class Cursor:
 
 
 class SegmentCursor(Cursor):
-    def __init__(self, connection, request, legacy_primitive_types: bool = False):
-        super().__init__(connection, request, legacy_primitive_types=legacy_primitive_types)
+    def __init__(
+        self,
+        connection,
+        request,
+        legacy_primitive_types: bool = False,
+        stats_callback: Callable[[dict[str, Any]], None] | None = None,
+    ):
+        super().__init__(
+            connection, request, legacy_primitive_types=legacy_primitive_types, stats_callback=stats_callback
+        )
         if self.connection._client_session.encoding is None:
             raise ValueError("SegmentCursor can only be used if encoding is set on the connection")
 
@@ -774,6 +808,7 @@ class SegmentCursor(Cursor):
             query=operation,
             legacy_primitive_types=self._legacy_primitive_types,
             fetch_mode="segments",
+            stats_callback=self._stats_callback,
         )
         self._iterator = aiter(await self._query.execute())
         return self
