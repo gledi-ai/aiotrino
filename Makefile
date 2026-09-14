@@ -95,7 +95,7 @@ test/unit: ## Run unit tests only
 test/integration: ## Run integration tests (needs Docker; testcontainers spins up Trino)
 	$(UV) run --locked pytest tests/integration $(ARGS)
 
-cov: ## Run tests with coverage (terminal + missing lines)
+cov test/cov: ## Run tests with coverage (terminal + missing lines)
 	$(UV) run --locked pytest --cov=aiotrino --cov-report=term-missing $(ARGS)
 
 cov/report: ## Run tests with coverage and write xml + html + junit reports
