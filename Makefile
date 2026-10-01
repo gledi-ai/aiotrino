@@ -13,7 +13,7 @@ VENV_DIR := $(CURDIR)/.venv
 VENV_PROMPT := $(PROJECTNAME)
 PY := $(VENV_DIR)/bin/python
 
-ARGS = $(filter-out $@,$(MAKECMDGOALS))
+ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
 
 ##@ General
@@ -146,5 +146,9 @@ hooks: ## Run pre-commit on all files
 	$(UVX) prek run --all-files
 
 
-%:
+# Extra goals are arguments for the first one (make test tests/unit); never build them.
+ifneq ($(ARGS),)
+.PHONY: $(ARGS)
+$(ARGS):
 	@:
+endif
