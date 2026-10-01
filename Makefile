@@ -82,6 +82,17 @@ clean: ## Remove build artifacts and caches
 	find . -path ./.venv -prune -o -type d -name __pycache__ -print -exec rm -rf {} +
 
 
+##@ Release
+
+.PHONY: changelog
+
+# Last upstream (mvanderlee/aiotrino) commit; the changelog covers only the fork's history.
+FORK_BASE := 916a351
+
+changelog: ## Regenerate CHANGELOG.md; VERSION=vX.Y.Z files unreleased commits under that version
+	$(UVX) git-cliff $(FORK_BASE)..HEAD $(if $(VERSION),--tag $(VERSION)) -o CHANGELOG.md
+
+
 ##@ Testing
 
 .PHONY: test test/unit test/integration cov cov/report test/matrix
