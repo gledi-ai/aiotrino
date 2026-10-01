@@ -3,6 +3,12 @@
 All notable changes to aiotrino-patched since it was forked from
 [mvanderlee/aiotrino](https://github.com/mvanderlee/aiotrino).
 
+## [0.5.1] - 2026-10-01
+
+### Miscellaneous
+
+- **release:** Generate CHANGELOG.md with git-cliff
+
 ## [0.5.0] - 2026-10-01
 
 ### Features
@@ -96,3 +102,4 @@ All notable changes to aiotrino-patched since it was forked from
 
 - Chore/modernize ([#1](https://github.com/gledi-ai/aiotrino/pull/1))
 - **release:** Prepare for release ([#3](https://github.com/gledi-ai/aiotrino/pull/3))
+

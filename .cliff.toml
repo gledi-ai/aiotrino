@@ -34,6 +34,7 @@ conventional_commits = true
 filter_unconventional = false
 commit_parsers = [
   { message = "^Merge", skip = true },
+  { message = "^chore\\(changelog\\)", skip = true },
   { message = "(?i)^feat", group = "<!-- 0 -->Features" },
   { message = "(?i)^fix", group = "<!-- 1 -->Bug Fixes" },
   { message = "(?i)^perf", group = "<!-- 2 -->Performance" },
