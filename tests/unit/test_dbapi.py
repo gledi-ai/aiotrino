@@ -18,7 +18,7 @@ import aiotrino.exceptions
 from aiotrino import constants
 from aiotrino.auth import BasicAuthentication
 from aiotrino.client import TrinoStatus
-from aiotrino.dbapi import Connection, connect
+from aiotrino.dbapi import Binary, Connection, Cursor, connect
 
 
 class aiter_mock:
@@ -167,6 +167,26 @@ async def test_no_error_when_auth_over_https():
 
 
 @pytest.mark.asyncio
+async def test_error_when_auth_over_http_mentions_allow_insecure_auth():
+    with pytest.raises(aiotrino.exceptions.TrinoAuthError, match="allow_insecure_auth=True"):
+        Connection("mytrinoserver.domain", http_scheme=constants.HTTP, auth=BasicAuthentication("u", "p"))
+
+
+@pytest.mark.asyncio
+async def test_no_error_when_auth_over_http_with_allow_insecure_auth():
+    connection = Connection(
+        "mytrinoserver.domain",
+        http_scheme=constants.HTTP,
+        auth=BasicAuthentication("u", "p"),
+        allow_insecure_auth=True,
+    )
+    assert connection.http_scheme == constants.HTTP
+    request = connection._create_request()
+    assert request._http_scheme == constants.HTTP
+    await connection.close()
+
+
+@pytest.mark.asyncio
 @patch("aiotrino.dbapi.aiotrino.client")
 async def test_stats_callback_passed_to_query(mock_client):
     mock_client.TrinoQuery.return_value.execute.return_value = mock_execute()
@@ -243,3 +263,42 @@ async def test_cursor_close_cancels_unfinished_query():
         await cur.close()
 
     cur._request.delete.assert_awaited_once_with("http://coordinator/v1/statement/q1/2")
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (b"", b""),
+        (b"hello", b"hello"),
+        (b"\xff\xfe\x00\x01", b"\xff\xfe\x00\x01"),
+        (bytearray(b"abc"), b"abc"),
+        (memoryview(b"xyz"), b"xyz"),
+        ("hello", b"hello"),
+    ],
+)
+def test_binary(value, expected):
+    result = Binary(value)
+    assert isinstance(result, bytes)
+    assert result == expected
+
+
+@pytest.mark.parametrize("value", [1, None, 1.5, [b"a"]])
+def test_binary_rejects_non_bytes_non_str(value):
+    with pytest.raises(TypeError):
+        Binary(value)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (b"", "X''"),
+        (b"hello", "X'68656c6c6f'"),
+        (b"\xca\xfe\xba\xbe", "X'cafebabe'"),
+        (bytearray(b"abc"), "X'616263'"),
+        (memoryview(b"abc"), "X'616263'"),
+    ],
+)
+def test_format_prepared_param_binary(value, expected):
+    cursor = Cursor.__new__(Cursor)
+    assert cursor._format_prepared_param(value) == expected
+    assert cursor._format_prepared_param(Binary(value)) == expected

@@ -10,10 +10,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select
+from sqlalchemy import Column, Integer, LargeBinary, MetaData, String, Table, func, insert, literal, select
+from sqlalchemy.exc import CompileError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column, table
+from sqlalchemy.sql.sqltypes import VARBINARY as GenericVARBINARY
 
+from aiotrino.sqlalchemy.datatype import VARBINARY
 from aiotrino.sqlalchemy.dialect import AIOTrinoDialect
 from tests.unit.conftest import sqlalchemy_version
 
@@ -147,3 +150,33 @@ def test_try_cast(dialect):
     statement = select(try_cast(table_without_catalog.c.id, String))
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT try_cast("table".id as VARCHAR) AS id \nFROM "table"'
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (b"", "X''"),
+        (b"hello", "X'68656c6c6f'"),
+        (b"\xca\xfe\xba\xbe", "X'cafebabe'"),
+        (b"\xff\xfe\x00\x01", "X'fffe0001'"),
+        (bytearray(b"abc"), "X'616263'"),
+        (memoryview(b"abc"), "X'616263'"),
+    ],
+)
+@pytest.mark.parametrize("type_", [VARBINARY(), GenericVARBINARY(), LargeBinary()])
+def test_varbinary_literal_binds(dialect, value, expected, type_):
+    expression = literal(value, type_=type_)
+    query = expression.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+    assert str(query) == expected
+
+
+def test_varbinary_literal_binds_rejects_non_bytes(dialect):
+    expression = literal("not-bytes", type_=VARBINARY())
+    with pytest.raises(CompileError):
+        expression.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+
+
+def test_varbinary_create_table(dialect):
+    table_with_binary = Table("table_with_binary", MetaData(), Column("data", LargeBinary))
+    query = CreateTable(table_with_binary).compile(dialect=dialect)
+    assert "data VARBINARY" in str(query)

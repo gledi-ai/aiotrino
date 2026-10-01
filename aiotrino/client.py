@@ -554,7 +554,7 @@ class TrinoRequest:
             self._http_session = http_session
             self._close_session = False
         else:
-            self._http_session = self.http.ClientSession(connector=TrinoTCPConnector(verify_ssl=verify))
+            self._http_session = self.http.ClientSession(connector=TrinoTCPConnector(ssl=verify))
             self._close_session = True
         self._http_session.headers.update(self.http_headers)
         self._exceptions = self.HTTP_EXCEPTIONS

@@ -107,6 +107,28 @@ rows = await cur.fetchall()
 await conn.close()
 ```
 
+# Authentication over insecure transport
+By default, the client refuses to send authentication credentials (for example `BasicAuthentication`) over an
+unencrypted `http://` connection, raising a `TrinoAuthError`. This is intentional as it avoids credentials being sent
+in plaintext.
+
+If the connection is already encrypted below the application layer (for example the client only ever talks to a
+Trino coordinator through an mTLS-terminating service mesh sidecar on `localhost`), set `allow_insecure_auth` to
+`True` to opt out of the check. Depending on the coordinator's configuration, you may additionally need to set
+`http-server.authentication.allow-insecure-over-http=true` on the coordinator.
+
+```python
+import aiotrino
+
+conn = aiotrino.dbapi.connect(
+    host="localhost",
+    user="<username>",
+    auth=aiotrino.auth.BasicAuthentication("<username>", "<password>"),
+    http_scheme="http",
+    allow_insecure_auth=True,
+)
+```
+
 # Transactions
 The client runs by default in *autocommit* mode. To enable transactions, set
 *isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:

@@ -37,7 +37,7 @@ from aiotrino.dbapi import ColumnDescription, Cursor, IsolationLevel, NotSupport
 from aiotrino.sqlalchemy import compiler, datatype, error
 from aiotrino.utils import aiter
 
-from .datatype import JSONIndexType, JSONPathType
+from .datatype import VARBINARY, JSONIndexType, JSONPathType
 
 
 logger = logging.get_logger(__name__)
@@ -45,6 +45,7 @@ logger = logging.get_logger(__name__)
 colspecs = {
     sqltypes.JSON.JSONIndexType: JSONIndexType,
     sqltypes.JSON.JSONPathType: JSONPathType,
+    sqltypes._Binary: VARBINARY,
 }
 
 
@@ -593,6 +594,9 @@ class AIOTrinoDialect(DefaultDialect):
         if "verify" in url.query:
             kwargs["verify"] = json.loads(url.query["verify"])
 
+        if "allow_insecure_auth" in url.query:
+            kwargs["allow_insecure_auth"] = json.loads(url.query["allow_insecure_auth"])
+
         if "roles" in url.query:
             kwargs["roles"] = json.loads(url.query["roles"])
 
@@ -644,9 +648,12 @@ class AIOTrinoDialect(DefaultDialect):
         """
         ).strip()
         res = connection.execute(sql.text(query))
-        description = await_only(res.cursor.get_description())
-        partition_names = [desc[0] for desc in description]
-        data_types = [desc[1] for desc in description]
+        try:
+            description = await_only(res.cursor.get_description())
+            partition_names = [desc[0] for desc in description]
+            data_types = [desc[1] for desc in description]
+        finally:
+            res.close()
         # Compare the column names and types to the shape of an Iceberg $partitions table
         if (
             partition_names == ["partition", "record_count", "file_count", "total_size", "data"]
