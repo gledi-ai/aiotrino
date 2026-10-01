@@ -31,7 +31,7 @@ class BasicAuthentication(Authentication):
         self._password = password
 
     def set_http_session(self, http_session: aiohttp.ClientSession) -> aiohttp.ClientSession:
-        http_session._default_auth = aiohttp.BasicAuth(self._username, self._password)
+        http_session.headers["Authorization"] = aiohttp.encode_basic_auth(self._username, self._password)
         return http_session
 
     def get_exceptions(self):

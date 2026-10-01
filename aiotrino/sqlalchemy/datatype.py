@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import sqlalchemy
-from sqlalchemy import func, util
+from sqlalchemy import exc, func, util
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 from sqlalchemy.types import JSON
@@ -84,6 +84,20 @@ class JSON(TypeDecorator):
         return func.JSON_PARSE(bindvalue)
 
 
+class VARBINARY(sqltypes.VARBINARY):
+    __visit_name__ = "VARBINARY"
+
+    def literal_processor(self, dialect):
+        def process(value):
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                return f"X'{bytes(value).hex()}'"
+            raise exc.CompileError(
+                f"VARBINARY literal must be bytes, bytearray or memoryview, got {type(value).__name__}"
+            )
+
+        return process
+
+
 class _FormatTypeMixin:
     def _format_value(self, value):
         raise NotImplementedError()
@@ -149,7 +163,7 @@ _type_map = {
     # === String ===
     "varchar": sqltypes.VARCHAR,
     "char": sqltypes.CHAR,
-    "varbinary": sqltypes.VARBINARY,
+    "varbinary": VARBINARY,
     "json": JSON,
     # === Date and time ===
     "date": sqltypes.DATE,

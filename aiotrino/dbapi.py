@@ -187,6 +187,7 @@ class Connection:
         timezone: str | None = None,
         encoding: str | list[str] = _USE_DEFAULT_ENCODING,
         heartbeat_interval: float | None = constants.DEFAULT_HEARTBEAT_INTERVAL,
+        allow_insecure_auth: bool = False,
     ):
         # Automatically assign http_schema, port based on hostname
         parsed_host = urlparse(host, allow_fragments=False)
@@ -197,11 +198,14 @@ class Connection:
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
         self.http_scheme = _resolve_http_scheme(parsed_host, port, http_scheme)
         self.port = _resolve_port(parsed_host, port, self.http_scheme)
-        if auth is not None and self.http_scheme == constants.HTTP:
+        if auth is not None and self.http_scheme == constants.HTTP and not allow_insecure_auth:
             raise aiotrino.exceptions.TrinoAuthError(
                 "TLS/SSL is required for authentication. "
                 "To use HTTPS, specify 'https://' in the host URL (which takes precedence over "
-                "http_scheme), or, if the host URL has no scheme, pass http_scheme='https'."
+                "http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
+                "If the transport is already encrypted below the application layer (e.g. mTLS), "
+                "pass allow_insecure_auth=True and ensure "
+                "http-server.authentication.allow-insecure-over-http=true is set on the coordinator."
             )
         self.user = user
         self.source = source
@@ -226,7 +230,7 @@ class Connection:
         # mypy cannot follow module import
         if http_session is None:
             self._http_session = aiotrino.client.TrinoRequest.http.ClientSession(
-                connector=aiotrino.client.TrinoTCPConnector(verify_ssl=verify)
+                connector=aiotrino.client.TrinoTCPConnector(ssl=verify)
             )
         else:
             self._http_session = http_session
@@ -293,7 +297,7 @@ class Connection:
         # The Connection only calls this from async functions so therefore it will be in event loop
         if self._http_session is None:
             self._http_session = aiohttp.ClientSession(
-                connector=aiotrino.client.TrinoTCPConnector(verify_ssl=self._verify_ssl)
+                connector=aiotrino.client.TrinoTCPConnector(ssl=self._verify_ssl)
             )  # type: ignore
 
         return aiotrino.client.TrinoRequest(
@@ -578,8 +582,8 @@ class Cursor:
         if isinstance(param, str):
             return "'{}'".format(param.replace("'", "''"))
 
-        if isinstance(param, (bytes, bytearray)):
-            return f"X'{param.hex()}'"
+        if isinstance(param, (bytes, bytearray, memoryview)):
+            return f"X'{bytes(param).hex()}'"
 
         if isinstance(param, datetime.datetime) and param.tzinfo is None:
             datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -825,8 +829,12 @@ def TimeFromTicks(ticks):
     return datetime.time(*datetime.localtime(ticks)[3:6])
 
 
-def Binary(string):
-    return string.encode("utf-8")
+def Binary(value):
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value)
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    raise TypeError(f"Binary() expects bytes, bytearray, memoryview or str, got {type(value).__name__}")
 
 
 class DBAPITypeObject:
