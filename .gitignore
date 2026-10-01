@@ -151,9 +151,3 @@ static
 .vscode/
 .envrc
 
-# AI agents files & directories
-.claude/
-.serena/
-CLAUDE.md
-.superpowers/
-tokensave/
