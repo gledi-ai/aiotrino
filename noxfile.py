@@ -13,7 +13,7 @@ SQLALCHEMY_VERSIONS = {
 FULL_SUITE_SQLALCHEMY = "2.1"
 SQLALCHEMY_TESTS = ["tests/unit/sqlalchemy", "tests/integration/test_sqlalchemy_integration.py"]
 # Branch coverage via sys.monitoring needs 3.14+; the ctrace fallback makes 3.13 runs ~3x slower.
-COVERAGE_PYTHONS = {"3.14", "3.15"}
+COVERAGE_PYTHON = "3.14"
 
 
 @session(python=["3.13", "3.14", "3.15"], uv_extras=["all"], uv_groups=["dev"])
@@ -23,7 +23,7 @@ def test(s: Session, sqlalchemy: str) -> None:
     py = s.python
     suffix = f"{py}-sqlalchemy{sqlalchemy}"
     paths = [] if sqlalchemy == FULL_SUITE_SQLALCHEMY else SQLALCHEMY_TESTS
-    coverage = py in COVERAGE_PYTHONS
+    coverage = py == COVERAGE_PYTHON and sqlalchemy == FULL_SUITE_SQLALCHEMY
     cov_args = (
         ["--cov=aiotrino", "--cov-report=term-missing", f"--cov-report=xml:coverage-{suffix}.xml"] if coverage else []
     )
