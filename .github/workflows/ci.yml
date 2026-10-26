@@ -57,6 +57,10 @@ jobs:
       - name: Start Trino in the background
         run: nohup sh -c 'sleep infinity | uv run --locked --python 3.13 python -u -m tests.development_server' > devserver.log 2>&1 &
 
+      # Builds any wheels missing for this Python (e.g. zstandard on 3.15) into the uv cache while Trino starts.
+      - name: Prepare dependencies
+        run: uv sync --locked --all-extras
+
       - name: Wait for Trino
         run: timeout 180 sh -c 'until grep -q "Trino started" devserver.log; do sleep 2; done' || { cat devserver.log; exit 1; }
 
