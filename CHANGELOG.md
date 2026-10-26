@@ -3,6 +3,25 @@
 All notable changes to aiotrino-patched since it was forked from
 [mvanderlee/aiotrino](https://github.com/mvanderlee/aiotrino).
 
+## [0.7.0] - 2026-10-26
+
+### Features
+
+- Support Python 3.13-3.15, drop 3.12
+
+### Miscellaneous
+
+- Strip trailing blank lines
+- Run once per PR and lint in a single job
+- Use uv 0.13
+- Bump actions/checkout to v7 and astral-sh/setup-uv to v10.3.2
+- Run tests in parallel against one shared Trino
+- Drop --dist loadfile
+- Start the Trino dev server on Python 3.13
+- Build dependencies while Trino starts
+- Run the Trino dev server in its own venv and fail fast if it crashes
+- Run each SQLAlchemy version as its own matrix job, collect coverage on 3.14 only
+
 ## [0.6.0] - 2026-10-26
 
 ### Features
