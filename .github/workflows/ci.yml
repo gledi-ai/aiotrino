@@ -61,7 +61,7 @@ jobs:
         run: timeout 180 sh -c 'until grep -q "Trino started" devserver.log; do sleep 2; done' || { cat devserver.log; exit 1; }
 
       - name: Run tests on SQLAlchemy 2.0 and 2.1
-        run: uvx --with nox-uv nox --session=test --non-interactive --python ${{ matrix.python-version }} -- -n auto --dist loadfile
+        run: uvx --with nox-uv nox --session=test --non-interactive --python ${{ matrix.python-version }} -- -n auto
 
       - name: Upload test and coverage reports
         if: ${{ !cancelled() }}
