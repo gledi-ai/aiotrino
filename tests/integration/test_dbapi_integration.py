@@ -34,12 +34,7 @@ from tests.integration.conftest import trino_version
 
 
 @pytest_asyncio.fixture(params=[None, "json+zstd", "json+lz4", "json"], loop_scope="session")
-async def trino_connection(
-    request, run_trino
-) -> AsyncGenerator[
-    Connection,
-    None,
-]:
+async def trino_connection(request, run_trino) -> AsyncGenerator[Connection]:
     host, port = run_trino
     encoding = request.param
 
@@ -51,7 +46,7 @@ async def trino_connection(
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def trino_connection_with_transaction(run_trino) -> AsyncGenerator[Connection, None]:
+async def trino_connection_with_transaction(run_trino) -> AsyncGenerator[Connection]:
     host, port = run_trino
 
     conn = aiotrino.dbapi.Connection(
@@ -67,7 +62,7 @@ async def trino_connection_with_transaction(run_trino) -> AsyncGenerator[Connect
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def trino_connection_in_autocommit(run_trino) -> AsyncGenerator[Connection, None]:
+async def trino_connection_in_autocommit(run_trino) -> AsyncGenerator[Connection]:
     host, port = run_trino
 
     conn = aiotrino.dbapi.Connection(
@@ -85,7 +80,7 @@ async def trino_connection_in_autocommit(run_trino) -> AsyncGenerator[Connection
 @pytest_asyncio.fixture(loop_scope="session")
 async def trino_connection_with_legacy_prepared_statements(
     legacy_prepared_statements, run_trino
-) -> AsyncGenerator[Connection, None]:
+) -> AsyncGenerator[Connection]:
     host, port = run_trino
 
     conn = aiotrino.dbapi.Connection(

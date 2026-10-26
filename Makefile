@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 PROJECTNAME := $(shell basename $(CURDIR))
 
-PY_VERSION := 3.12
+PY_VERSION := 3.13
 
 UV := $(shell which uv 2>/dev/null || echo "uv")
 UVX := $(shell which uvx 2>/dev/null || echo "uvx")
@@ -112,7 +112,7 @@ cov test/cov: ## Run tests with coverage (terminal + missing lines)
 cov/report: ## Run tests with coverage and write xml + html + junit reports
 	$(UV) run --locked pytest --cov=aiotrino --cov-report=term-missing --cov-report=xml --cov-report=html --junitxml=junit.xml $(ARGS)
 
-test/matrix: ## Run tests across all supported Python versions (py3.12/3.13/3.14) via nox
+test/matrix: ## Run tests across all supported Python versions (py3.13/3.14/3.15) via nox
 	$(UVX) --with nox-uv nox --session test
 
 

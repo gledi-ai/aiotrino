@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Asyncio client for the Trino distributed SQL Engine"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<3.16"
 authors = [
   { name = "Michiel van der Lee & Trino Team", email = "jmt.vanderlee@gmail.com" },
 ]
@@ -18,9 +18,9 @@ classifiers = [
   "Operating System :: Microsoft :: Windows",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Database :: Front-Ends",
@@ -90,7 +90,7 @@ default-groups = "all"
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
@@ -130,6 +130,9 @@ asyncio_default_fixture_loop_scope = "session"
 [tool.coverage.run]
 source = ["aiotrino"]
 branch = true
+# sys.monitoring only measures branches on 3.14+; 3.13 falls back to the slower ctrace core.
+core = "sysmon"
+disable_warnings = ["no-sysmon"]
 
 [tool.coverage.report]
 show_missing = true

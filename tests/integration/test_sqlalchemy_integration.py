@@ -27,7 +27,7 @@ from tests.unit.conftest import sqlalchemy_version
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def trino_connection(run_trino, request) -> AsyncGenerator[tuple[AsyncEngine, AsyncConnection], None]:
+async def trino_connection(run_trino, request) -> AsyncGenerator[tuple[AsyncEngine, AsyncConnection]]:
     host, port = run_trino
     connect_args = {"source": "test", "max_attempts": 1}
     if trino_version() <= 417:

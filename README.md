@@ -9,7 +9,7 @@
 # Introduction
 
 This package provides a asyncio client interface to query [Trino](https://trino.io/)
-a distributed SQL engine. It supports Python 3.12, 3.13, 3.14.
+a distributed SQL engine. It supports Python 3.13, 3.14, 3.15.
 
 # Installation
 
@@ -215,7 +215,7 @@ uv run --frozen pytest tests/unit/test_client.py::test_name  # single test
 
 Pass any pytest option through, e.g. `--pdb`.
 
-To run the test suite across every supported Python version (3.12 / 3.13 / 3.14),
+To run the test suite across every supported Python version (3.13 / 3.14 / 3.15),
 use [`nox`](https://nox.thea.codes/). `noxfile.py` also imports `nox-uv`, and
 the venv backend is set to `uv`, so the matrix is provisioned via uv. `nox`
 itself lives **outside** the project venv — invoke it with `uvx` (ephemeral,
