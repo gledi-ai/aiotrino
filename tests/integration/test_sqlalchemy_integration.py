@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 import math
+import os
 import uuid
 from collections.abc import AsyncGenerator
 from decimal import Decimal
@@ -26,8 +27,12 @@ from tests.integration.conftest import trino_version
 from tests.unit.conftest import sqlalchemy_version
 
 
+# Per-worker schema so parallel xdist workers never see each other's tables.
+TEST_SCHEMA = f"test_{os.environ.get('PYTEST_XDIST_WORKER', 'main')}"
+
+
 @pytest_asyncio.fixture(loop_scope="session")
-async def trino_connection(run_trino, request) -> AsyncGenerator[tuple[AsyncEngine, AsyncConnection], None]:
+async def trino_connection(run_trino, request) -> AsyncGenerator[tuple[AsyncEngine, AsyncConnection]]:
     host, port = run_trino
     connect_args = {"source": "test", "max_attempts": 1}
     if trino_version() <= 417:
@@ -101,8 +106,8 @@ async def test_select_specific_columns(trino_connection: tuple[AsyncEngine, Asyn
 async def test_define_and_create_table(trino_connection: tuple[AsyncEngine, AsyncConnection]):
     engine, _conn = trino_connection
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     async with engine.begin() as connection:
         metadata = sqla.MetaData()
@@ -113,12 +118,12 @@ async def test_define_and_create_table(trino_connection: tuple[AsyncEngine, Asyn
                 sqla.Column("id", sqla.Integer),
                 sqla.Column("name", sqla.String),
                 sqla.Column("fullname", sqla.String),
-                schema="test",
+                schema=TEST_SCHEMA,
             )
             await connection.run_sync(metadata.create_all)
-            assert await connection.run_sync(lambda conn: sqla.inspect(conn).has_table("users", schema="test"))
+            assert await connection.run_sync(lambda conn: sqla.inspect(conn).has_table("users", schema=TEST_SCHEMA))
             users = await connection.run_sync(
-                lambda conn: sqla.Table("users", metadata, schema="test", autoload_with=conn)
+                lambda conn: sqla.Table("users", metadata, schema=TEST_SCHEMA, autoload_with=conn)
             )
             assert_column(users, "id", sqla.sql.sqltypes.Integer)
             assert_column(users, "name", sqla.sql.sqltypes.String)
@@ -136,8 +141,8 @@ async def test_insert(trino_connection: tuple[AsyncEngine, AsyncConnection]):
     engine, conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     async with engine.begin() as connection:
         metadata = sqla.MetaData()
@@ -148,7 +153,7 @@ async def test_insert(trino_connection: tuple[AsyncEngine, AsyncConnection]):
                 sqla.Column("id", sqla.Integer),
                 sqla.Column("name", sqla.String),
                 sqla.Column("fullname", sqla.String),
-                schema="test",
+                schema=TEST_SCHEMA,
             )
             await connection.run_sync(metadata.create_all)
             ins = users.insert()
@@ -169,17 +174,17 @@ async def test_define_and_create_table_uuid(trino_connection: tuple[AsyncEngine,
     engine, _conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     async with engine.begin() as connection:
         metadata = sqla.MetaData()
         try:
-            sqla.Table("users", metadata, sqla.Column("guid", sqla.Uuid), schema="test")
+            sqla.Table("users", metadata, sqla.Column("guid", sqla.Uuid), schema=TEST_SCHEMA)
             await connection.run_sync(metadata.create_all)
-            assert await connection.run_sync(lambda conn: sqla.inspect(conn).has_table("users", schema="test"))
+            assert await connection.run_sync(lambda conn: sqla.inspect(conn).has_table("users", schema=TEST_SCHEMA))
             users = await connection.run_sync(
-                lambda conn: sqla.Table("users", metadata, schema="test", autoload_with=conn)
+                lambda conn: sqla.Table("users", metadata, schema=TEST_SCHEMA, autoload_with=conn)
             )
             assert_column(users, "guid", sqla.sql.sqltypes.Uuid)
         finally:
@@ -193,13 +198,13 @@ async def test_insert_uuid(trino_connection: tuple[AsyncEngine, AsyncConnection]
     engine, conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     async with engine.begin() as connection:
         metadata = sqla.MetaData()
         try:
-            users = sqla.Table("users", metadata, sqla.Column("guid", sqla.Uuid), schema="test")
+            users = sqla.Table("users", metadata, sqla.Column("guid", sqla.Uuid), schema=TEST_SCHEMA)
             await connection.run_sync(metadata.create_all)
             ins = users.insert()
             guid = uuid.uuid4()
@@ -222,8 +227,8 @@ async def test_insert_multiple_statements(trino_connection: tuple[AsyncEngine, A
     engine, conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     async with engine.begin() as connection:
         try:
@@ -234,7 +239,7 @@ async def test_insert_multiple_statements(trino_connection: tuple[AsyncEngine, A
                 sqla.Column("id", sqla.Integer),
                 sqla.Column("name", sqla.String),
                 sqla.Column("fullname", sqla.String),
-                schema="test",
+                schema=TEST_SCHEMA,
             )
             await connection.run_sync(metadata.create_all)
             ins = users.insert()
@@ -462,8 +467,8 @@ async def test_json_column(trino_connection: tuple[AsyncEngine, AsyncConnection]
     engine, conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     async with engine.begin() as connection:
         metadata = sqla.MetaData()
@@ -473,7 +478,7 @@ async def test_json_column(trino_connection: tuple[AsyncEngine, AsyncConnection]
                 metadata,
                 sqla.Column("id", sqla.Integer),
                 sqla.Column("json_column", JSON),
-                schema="test",
+                schema=TEST_SCHEMA,
             )
             await connection.run_sync(metadata.create_all)
             ins = table_with_json.insert()
@@ -573,8 +578,8 @@ async def test_map_column(trino_connection: tuple[AsyncEngine, AsyncConnection],
     engine, conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     metadata = sqla.MetaData()
 
@@ -585,7 +590,7 @@ async def test_map_column(trino_connection: tuple[AsyncEngine, AsyncConnection],
                 metadata,
                 sqla.Column("id", sqla.Integer),
                 sqla.Column("map_column", sqla_type),
-                schema="test",
+                schema=TEST_SCHEMA,
             )
             await connection.run_sync(metadata.create_all)
             ins = table_with_map.insert()
@@ -622,8 +627,8 @@ async def test_array_column(trino_connection: tuple[AsyncEngine, AsyncConnection
     engine, conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     metadata = sqla.MetaData()
 
@@ -634,7 +639,7 @@ async def test_array_column(trino_connection: tuple[AsyncEngine, AsyncConnection
                 metadata,
                 sqla.Column("id", sqla.Integer),
                 sqla.Column("array_column", sqla_type),
-                schema="test",
+                schema=TEST_SCHEMA,
             )
             await connection.run_sync(metadata.create_all)
             ins = table_with_array.insert()
@@ -691,8 +696,8 @@ async def test_row_column(trino_connection: tuple[AsyncEngine, AsyncConnection],
     engine, conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     metadata = sqla.MetaData()
 
@@ -703,7 +708,7 @@ async def test_row_column(trino_connection: tuple[AsyncEngine, AsyncConnection],
                 metadata,
                 sqla.Column("id", sqla.Integer),
                 sqla.Column("row_column", sqla_type),
-                schema="test",
+                schema=TEST_SCHEMA,
             )
             await connection.run_sync(metadata.create_all)
             ins = table_with_row.insert()
@@ -738,8 +743,8 @@ async def test_get_table_comment(trino_connection: tuple[AsyncEngine, AsyncConne
     engine, _conn = trino_connection
 
     async with engine.begin() as connection:
-        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, "test"))):
-            await connection.execute(sqla.schema.CreateSchema("test"))
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
 
     metadata = sqla.MetaData()
 
@@ -749,20 +754,20 @@ async def test_get_table_comment(trino_connection: tuple[AsyncEngine, AsyncConne
                 "table_with_id",
                 metadata,
                 sqla.Column("id", sqla.Integer),
-                schema="test",
+                schema=TEST_SCHEMA,
                 # comment="This is a comment" TODO: Support comment creation through sqlalchemy api
             )
             await connection.run_sync(metadata.create_all)
             actual = await connection.run_sync(
-                lambda conn: sqla.inspect(conn).get_table_comment("table_with_id", schema="test")
+                lambda conn: sqla.inspect(conn).get_table_comment("table_with_id", schema=TEST_SCHEMA)
             )
             assert actual["text"] is None
         finally:
             await connection.run_sync(metadata.drop_all)
 
 
-@pytest.mark.parametrize("trino_connection", ["memory/test"], indirect=True)
-@pytest.mark.parametrize("schema", [None, "test"])
+@pytest.mark.parametrize("trino_connection", [pytest.param(f"memory/{TEST_SCHEMA}", id="memory/test")], indirect=True)
+@pytest.mark.parametrize("schema", [None, pytest.param(TEST_SCHEMA, id="test")])
 @pytest.mark.asyncio(loop_scope="session")
 async def test_get_table_names(trino_connection: tuple[AsyncEngine, AsyncConnection], schema):
     engine, conn = trino_connection
@@ -802,8 +807,8 @@ async def test_get_table_names_raises(trino_connection: tuple[AsyncEngine, Async
             await connection.run_sync(lambda conn: sqla.inspect(conn).get_table_names(None))
 
 
-@pytest.mark.parametrize("trino_connection", ["memory/test"], indirect=True)
-@pytest.mark.parametrize("schema", [None, "test"])
+@pytest.mark.parametrize("trino_connection", [pytest.param(f"memory/{TEST_SCHEMA}", id="memory/test")], indirect=True)
+@pytest.mark.parametrize("schema", [None, pytest.param(TEST_SCHEMA, id="test")])
 @pytest.mark.asyncio(loop_scope="session")
 async def test_get_view_names(trino_connection: tuple[AsyncEngine, AsyncConnection], schema):
     engine, conn = trino_connection

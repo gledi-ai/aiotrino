@@ -18,10 +18,17 @@ repos:
       - id: debug-statements
       - id: check-merge-conflict
 
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.16.9
+  - repo: local
     hooks:
       - id: ruff-check
-        args: [--fix, --config=pyproject.toml]
+        name: Ruff (lint)
+        entry: uv run --locked --group dev ruff check --force-exclude
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true
       - id: ruff-format
-        args: [--config=pyproject.toml]
+        name: Ruff (format check)
+        entry: uv run --locked --group dev ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true

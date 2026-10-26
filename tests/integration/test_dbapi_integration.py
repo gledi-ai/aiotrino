@@ -34,12 +34,7 @@ from tests.integration.conftest import trino_version
 
 
 @pytest_asyncio.fixture(params=[None, "json+zstd", "json+lz4", "json"], loop_scope="session")
-async def trino_connection(
-    request, run_trino
-) -> AsyncGenerator[
-    Connection,
-    None,
-]:
+async def trino_connection(request, run_trino) -> AsyncGenerator[Connection]:
     host, port = run_trino
     encoding = request.param
 
@@ -51,7 +46,7 @@ async def trino_connection(
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def trino_connection_with_transaction(run_trino) -> AsyncGenerator[Connection, None]:
+async def trino_connection_with_transaction(run_trino) -> AsyncGenerator[Connection]:
     host, port = run_trino
 
     conn = aiotrino.dbapi.Connection(
@@ -67,7 +62,7 @@ async def trino_connection_with_transaction(run_trino) -> AsyncGenerator[Connect
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def trino_connection_in_autocommit(run_trino) -> AsyncGenerator[Connection, None]:
+async def trino_connection_in_autocommit(run_trino) -> AsyncGenerator[Connection]:
     host, port = run_trino
 
     conn = aiotrino.dbapi.Connection(
@@ -85,7 +80,7 @@ async def trino_connection_in_autocommit(run_trino) -> AsyncGenerator[Connection
 @pytest_asyncio.fixture(loop_scope="session")
 async def trino_connection_with_legacy_prepared_statements(
     legacy_prepared_statements, run_trino
-) -> AsyncGenerator[Connection, None]:
+) -> AsyncGenerator[Connection]:
     host, port = run_trino
 
     conn = aiotrino.dbapi.Connection(
@@ -225,23 +220,24 @@ async def test_string_query_param(trino_connection_with_legacy_prepared_statemen
     ],
 )
 async def test_execute_many(trino_connection_with_legacy_prepared_statements: Connection):
+    table = f"memory.default.test_execute_many_{uuid.uuid4().hex}"
     try:
         async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-            await cur.execute("CREATE TABLE memory.default.test_execute_many (key int, value varchar)")
+            await cur.execute(f"CREATE TABLE {table} (key int, value varchar)")
             await cur.fetchall()
-            operation = "INSERT INTO memory.default.test_execute_many (key, value) VALUES (?, ?)"
+            operation = f"INSERT INTO {table} (key, value) VALUES (?, ?)"
             await cur.executemany(operation, [(1, "value1")])
             await cur.fetchall()
-            await cur.execute("SELECT * FROM memory.default.test_execute_many ORDER BY key")
+            await cur.execute(f"SELECT * FROM {table} ORDER BY key")
             rows = await cur.fetchall()
             assert len(list(rows)) == 1
             assert rows[0] == [1, "value1"]
 
-            operation = "INSERT INTO memory.default.test_execute_many (key, value) VALUES (?, ?)"
+            operation = f"INSERT INTO {table} (key, value) VALUES (?, ?)"
             await cur.executemany(operation, [(2, "value2"), (3, "value3")])
             await cur.fetchall()
 
-            await cur.execute("SELECT * FROM memory.default.test_execute_many ORDER BY key")
+            await cur.execute(f"SELECT * FROM {table} ORDER BY key")
             rows = await cur.fetchall()
             assert len(list(rows)) == 3
             assert rows[0] == [1, "value1"]
@@ -249,7 +245,7 @@ async def test_execute_many(trino_connection_with_legacy_prepared_statements: Co
             assert rows[2] == [3, "value3"]
     finally:
         async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-            await cur.execute("DROP TABLE IF EXISTS memory.default.test_execute_many")
+            await cur.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -265,19 +261,18 @@ async def test_execute_many(trino_connection_with_legacy_prepared_statements: Co
     ],
 )
 async def test_execute_many_without_params(trino_connection_with_legacy_prepared_statements: Connection):
+    table = f"memory.default.test_execute_many_without_param_{uuid.uuid4().hex}"
     try:
         async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-            await cur.execute("CREATE TABLE memory.default.test_execute_many_without_param (value varchar)")
+            await cur.execute(f"CREATE TABLE {table} (value varchar)")
             await cur.fetchall()
             with pytest.raises(TrinoUserError) as e:
-                await cur.executemany(
-                    "INSERT INTO memory.default.test_execute_many_without_param (value) VALUES (?)", []
-                )
+                await cur.executemany(f"INSERT INTO {table} (value) VALUES (?)", [])
                 await cur.fetchall()
             assert "Incorrect number of parameters: expected 1 but found 0" in str(e.value)
     finally:
         async with await trino_connection_with_legacy_prepared_statements.cursor() as cur:
-            await cur.execute("DROP TABLE IF EXISTS memory.default.test_execute_many_without_param")
+            await cur.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 @pytest.mark.asyncio(loop_scope="session")

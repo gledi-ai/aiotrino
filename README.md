@@ -9,7 +9,7 @@
 # Introduction
 
 This package provides a asyncio client interface to query [Trino](https://trino.io/)
-a distributed SQL engine. It supports Python 3.12, 3.13, 3.14.
+a distributed SQL engine. It supports Python 3.13, 3.14, 3.15.
 
 # Installation
 
@@ -215,7 +215,7 @@ uv run --frozen pytest tests/unit/test_client.py::test_name  # single test
 
 Pass any pytest option through, e.g. `--pdb`.
 
-To run the test suite across every supported Python version (3.12 / 3.13 / 3.14),
+To run the test suite across every supported Python version (3.13 / 3.14 / 3.15),
 use [`nox`](https://nox.thea.codes/). `noxfile.py` also imports `nox-uv`, and
 the venv backend is set to `uv`, so the matrix is provisioned via uv. `nox`
 itself lives **outside** the project venv — invoke it with `uvx` (ephemeral,
@@ -246,8 +246,8 @@ TRINO_VERSION=466 uv run --frozen pytest tests/integration   # pin Trino version
 ```
 
 Containers used:
-- `trinodb/trino:${TRINO_VERSION:-latest}` — Trino coordinator on port 8080
-- `dxflrs/garage:v2.3.0` — S3-compatible storage on port 3900 (only for
+- `trinodb/trino:${TRINO_VERSION:-latest}` — Trino coordinator on a random host port
+- `dxflrs/garage:v2.5.0` — S3-compatible storage, reachable only from Trino (only for
   Trino ≥ 466, where the spooling protocol is enabled)
 
 If you already have a Trino instance running, the integration suite will
@@ -257,11 +257,8 @@ reuse it instead of starting one:
 TRINO_RUNNING_HOST=localhost TRINO_RUNNING_PORT=8080 uv run --frozen pytest tests/integration
 ```
 
-You can also bring the test stack up by hand (useful for poking at it with `trino-cli` or `psql`-style clients):
-
-```shell
-uv run python tests/development_server.py
-```
+Under `pytest-xdist` (`-n auto`), the containers start once in the controller process and all
+workers share them.
 
 ## Versioning
 
