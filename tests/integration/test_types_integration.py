@@ -597,31 +597,43 @@ async def test_interval_year_to_month(trino_connection):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_interval_day_to_second(trino_connection):
+    if trino_version() >= 484:
+        # Trino 484 rounds fractional seconds instead of truncating them, and bounds intervals by a
+        # signed 64-bit microsecond count, narrower than timedelta.
+        sub_millisecond = timedelta(days=1, seconds=40271, microseconds=117000)
+        limit = timedelta(days=106751991, hours=4, seconds=54, milliseconds=775)
+        max_interval = ("INTERVAL '106751991 04:00:54.775' DAY TO SECOND", limit)
+        min_interval = ("INTERVAL '-106751991 04:00:54.775' DAY TO SECOND", -limit)
+        out_of_range = (
+            "INTERVAL '106751991 04:00:54.776' DAY TO SECOND",
+            "INTERVAL '-106751991 04:00:54.776' DAY TO SECOND",
+        )
+    else:
+        sub_millisecond = timedelta(days=1, seconds=40271, microseconds=116000)
+        max_interval = (
+            "INTERVAL '999999999 23:59:59.999' DAY TO SECOND",
+            timedelta(days=999999999, hours=23, minutes=59, seconds=59, milliseconds=999),
+        )
+        min_interval = ("INTERVAL '-999999999' DAY", timedelta(days=-999999999))
+        out_of_range = ("INTERVAL '1000000000' DAY", "INTERVAL '-999999999 00:00:00.001' DAY TO SECOND")
+
     await (
         SqlTest(trino_connection)
         .add_field(sql="CAST(null AS INTERVAL DAY TO SECOND)", python=None)
         .add_field(sql="INTERVAL '2' DAY", python=timedelta(days=2))
         .add_field(sql="INTERVAL '-2' DAY", python=timedelta(days=-2))
         .add_field(sql="INTERVAL '-2' SECOND", python=timedelta(seconds=-2))
-        .add_field(
-            sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
-            python=timedelta(days=1, seconds=40271, microseconds=116000),
-        )
+        .add_field(sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND", python=sub_millisecond)
         .add_field(sql="INTERVAL '-5 23:59:57.000' DAY TO SECOND", python=timedelta(days=-6, seconds=3))
         .add_field(sql="INTERVAL '12 10:45' DAY TO MINUTE", python=timedelta(days=12, seconds=38700))
         .add_field(sql="INTERVAL '45:32.123' MINUTE TO SECOND", python=timedelta(seconds=2732, microseconds=123000))
         .add_field(sql="INTERVAL '32.123' SECOND", python=timedelta(seconds=32, microseconds=123000))
-        # max supported timedelta in Python
-        .add_field(
-            sql="INTERVAL '999999999 23:59:59.999' DAY TO SECOND",
-            python=timedelta(days=999999999, hours=23, minutes=59, seconds=59, milliseconds=999),
-        )
-        # min supported timedelta in Python
-        .add_field(sql="INTERVAL '-999999999' DAY", python=timedelta(days=-999999999))
+        .add_field(sql=max_interval[0], python=max_interval[1])
+        .add_field(sql=min_interval[0], python=min_interval[1])
     ).execute()
 
-    await SqlExpectFailureTest(trino_connection).execute("INTERVAL '1000000000' DAY")
-    await SqlExpectFailureTest(trino_connection).execute("INTERVAL '-999999999 00:00:00.001' DAY TO SECOND")
+    for sql in out_of_range:
+        await SqlExpectFailureTest(trino_connection).execute(sql)
 
 
 @pytest.mark.asyncio(loop_scope="session")
