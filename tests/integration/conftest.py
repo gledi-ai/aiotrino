@@ -13,12 +13,18 @@ import os
 import socket
 import sys
 from contextlib import closing
+from pathlib import Path
 
 import pytest
+from testcontainers.compose import DockerCompose
 
 import aiotrino.logging
 from aiotrino.constants import DEFAULT_PORT
-from tests.development_server import TRINO_HOST, TRINO_VERSION, start_development_server
+
+
+TRINO_HOST = "localhost"
+TRINO_VERSION = os.environ.get("TRINO_VERSION") or "latest"
+COMPOSE_DIR = Path(__file__).parents[2] / "etc"
 
 
 logger = aiotrino.logging.get_logger(__name__)
@@ -33,12 +39,6 @@ def is_trino_available(host, port):
     return False
 
 
-def get_local_port():
-    with closing(socket.socket()) as s:
-        s.bind(("localhost", 0))
-        return s.getsockname()[1]
-
-
 @pytest.fixture(scope="session")
 def run_trino():
     host = os.environ.get("TRINO_RUNNING_HOST", TRINO_HOST)
@@ -49,11 +49,12 @@ def run_trino():
         yield host, port
         return
 
-    # Start Trino and MinIO server
-    print(f"Could not connect to Trino at {host}:{port}, starting server...")
-    local_port = get_local_port()
-    with start_development_server(port=local_port):
-        yield TRINO_HOST, local_port
+    print(f"Could not connect to Trino at {host}:{port}, starting etc/compose.yaml...")
+    compose_files = ["compose.yaml"]
+    if trino_version() < 466:
+        compose_files.append("compose.pre-466.yaml")
+    with DockerCompose(COMPOSE_DIR, compose_file_name=compose_files, wait=True):
+        yield TRINO_HOST, DEFAULT_PORT
 
 
 def trino_version() -> int:

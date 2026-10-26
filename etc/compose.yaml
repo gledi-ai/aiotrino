@@ -1,0 +1,30 @@
+name: aiotrino
+
+# Trino >= 466 with the spooling protocol; add compose.pre-466.yaml for older versions.
+services:
+  garage:
+    image: dxflrs/garage:v2.5.0
+    hostname: garage
+    command: /garage server --single-node --default-bucket
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: GKAIOTRINOTESTKEY
+      GARAGE_DEFAULT_SECRET_KEY: aiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrino
+      GARAGE_DEFAULT_BUCKET: spooling
+    ports:
+      - "3900:3900"
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+
+  trino:
+    image: trinodb/trino:${TRINO_VERSION:-latest}
+    depends_on:
+      - garage
+    environment:
+      TRINO_CONFIG_DIR: /etc/trino
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino/catalog:/etc/trino/catalog
+      - ./trino/spooling-manager.properties:/etc/trino/spooling-manager.properties
+      - ./trino/jvm.config:/etc/trino/jvm.config
+      - ./trino/config.properties:/etc/trino/config.properties
