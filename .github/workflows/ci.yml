@@ -55,7 +55,7 @@ jobs:
 
       # One shared Trino lets both nox sessions and all xdist workers skip starting their own.
       - name: Start Trino in the background
-        run: nohup sh -c 'sleep infinity | uv run --locked python -u -m tests.development_server' > devserver.log 2>&1 &
+        run: nohup sh -c 'sleep infinity | uv run --locked --python 3.13 python -u -m tests.development_server' > devserver.log 2>&1 &
 
       - name: Wait for Trino
         run: timeout 180 sh -c 'until grep -q "Trino started" devserver.log; do sleep 2; done' || { cat devserver.log; exit 1; }
