@@ -53,9 +53,6 @@ jobs:
             pyproject.toml
             uv.lock
 
-      - name: Start Trino and Garage
-        run: docker compose -f etc/compose.yaml up -d --wait
-
       - name: Run tests on SQLAlchemy 2.0 and 2.1
         run: uvx --with nox-uv nox --session=test --non-interactive --python ${{ matrix.python-version }} -- -n auto
 

@@ -1,6 +1,0 @@
-# Overlay for Trino < 466, which has no spooling protocol: TRINO_VERSION=<n> docker compose -f compose.yaml -f compose.pre-466.yaml up
-services:
-  trino:
-    volumes:
-      - ./trino/jvm-pre-466.config:/etc/trino/jvm.config
-      - ./trino/config-pre-466.properties:/etc/trino/config.properties

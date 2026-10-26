@@ -236,7 +236,7 @@ nox
 ### Integration tests
 
 Integration tests spin up a real Trino server (and a Garage container as
-the S3-compatible store for the spooling protocol) from `etc/compose.yaml` via
+the S3-compatible store for the spooling protocol) via
 [`testcontainers`](https://testcontainers-python.readthedocs.io/) — Docker
 must be running locally.
 
@@ -246,8 +246,8 @@ TRINO_VERSION=466 uv run --frozen pytest tests/integration   # pin Trino version
 ```
 
 Containers used:
-- `trinodb/trino:${TRINO_VERSION:-latest}` — Trino coordinator on port 8080
-- `dxflrs/garage:v2.5.0` — S3-compatible storage on port 3900 (only for
+- `trinodb/trino:${TRINO_VERSION:-latest}` — Trino coordinator on a random host port
+- `dxflrs/garage:v2.5.0` — S3-compatible storage, reachable only from Trino (only for
   Trino ≥ 466, where the spooling protocol is enabled)
 
 If you already have a Trino instance running, the integration suite will
@@ -257,15 +257,8 @@ reuse it instead of starting one:
 TRINO_RUNNING_HOST=localhost TRINO_RUNNING_PORT=8080 uv run --frozen pytest tests/integration
 ```
 
-You can also bring the test stack up by hand (useful for poking at it with `trino-cli`,
-or for running the suite in parallel with `-n auto`):
-
-```shell
-docker compose -f etc/compose.yaml up -d --wait
-docker compose -f etc/compose.yaml down
-```
-
-For Trino < 466, add `-f etc/compose.pre-466.yaml`.
+Under `pytest-xdist` (`-n auto`), the containers start once in the controller process and all
+workers share them.
 
 ## Versioning
 

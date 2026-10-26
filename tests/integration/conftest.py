@@ -12,11 +12,14 @@
 import os
 import socket
 import sys
-from contextlib import closing
+from collections.abc import Generator
+from contextlib import ExitStack, closing, contextmanager
 from pathlib import Path
 
 import pytest
-from testcontainers.compose import DockerCompose
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.network import Network
+from testcontainers.core.wait_strategies import HealthcheckWaitStrategy, LogMessageWaitStrategy
 
 import aiotrino.logging
 from aiotrino.constants import DEFAULT_PORT
@@ -24,7 +27,13 @@ from aiotrino.constants import DEFAULT_PORT
 
 TRINO_HOST = "localhost"
 TRINO_VERSION = os.environ.get("TRINO_VERSION") or "latest"
-COMPOSE_DIR = Path(__file__).parents[2] / "etc"
+ETC = Path(__file__).parents[2] / "etc"
+
+# Keep in sync with etc/trino/spooling-manager.properties.
+GARAGE_IMAGE = "dxflrs/garage:v2.5.0"
+GARAGE_ACCESS_KEY = "GKAIOTRINOTESTKEY"
+GARAGE_SECRET_KEY = "aiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrinoaiotrino"
+GARAGE_BUCKET = "spooling"
 
 
 logger = aiotrino.logging.get_logger(__name__)
@@ -39,22 +48,54 @@ def is_trino_available(host, port):
     return False
 
 
+def running_trino() -> tuple[str, int]:
+    return os.environ.get("TRINO_RUNNING_HOST", TRINO_HOST), int(os.environ.get("TRINO_RUNNING_PORT", DEFAULT_PORT))
+
+
+@contextmanager
+def trino_containers() -> Generator[int]:
+    """Start Trino, plus Garage as the spooling store on Trino >= 466, and yield Trino's host port."""
+    spooling = trino_version() >= 466
+    suffix = "" if spooling else "-pre-466"
+    trino = (
+        DockerContainer(f"trinodb/trino:{TRINO_VERSION}")
+        .with_env("TRINO_CONFIG_DIR", "/etc/trino")
+        .with_exposed_ports(DEFAULT_PORT)
+        .with_volume_mapping(str(ETC / "trino/catalog"), "/etc/trino/catalog")
+        .with_volume_mapping(str(ETC / f"trino/jvm{suffix}.config"), "/etc/trino/jvm.config")
+        .with_volume_mapping(str(ETC / f"trino/config{suffix}.properties"), "/etc/trino/config.properties")
+        .waiting_for(HealthcheckWaitStrategy().with_startup_timeout(120))
+    )
+    with ExitStack() as stack:
+        if spooling:
+            network = stack.enter_context(Network())
+            stack.enter_context(
+                DockerContainer(GARAGE_IMAGE)
+                .with_network(network)
+                .with_network_aliases("garage")
+                .with_env("GARAGE_DEFAULT_ACCESS_KEY", GARAGE_ACCESS_KEY)
+                .with_env("GARAGE_DEFAULT_SECRET_KEY", GARAGE_SECRET_KEY)
+                .with_env("GARAGE_DEFAULT_BUCKET", GARAGE_BUCKET)
+                .with_command("/garage server --single-node --default-bucket")
+                .with_volume_mapping(str(ETC / "garage/garage.toml"), "/etc/garage.toml", "ro")
+                .waiting_for(LogMessageWaitStrategy("S3 API server listening on").with_startup_timeout(30))
+            )
+            trino.with_network(network).with_volume_mapping(
+                str(ETC / "trino/spooling-manager.properties"), "/etc/trino/spooling-manager.properties"
+            )
+        stack.enter_context(trino)
+        yield int(trino.get_exposed_port(DEFAULT_PORT))
+
+
 @pytest.fixture(scope="session")
 def run_trino():
-    host = os.environ.get("TRINO_RUNNING_HOST", TRINO_HOST)
-    port = int(os.environ.get("TRINO_RUNNING_PORT", DEFAULT_PORT))
-
-    # Is there any local Trino available
+    host, port = running_trino()
     if is_trino_available(host, port):
         yield host, port
         return
 
-    print(f"Could not connect to Trino at {host}:{port}, starting etc/compose.yaml...")
-    compose_files = ["compose.yaml"]
-    if trino_version() < 466:
-        compose_files.append("compose.pre-466.yaml")
-    with DockerCompose(COMPOSE_DIR, compose_file_name=compose_files, wait=True):
-        yield TRINO_HOST, DEFAULT_PORT
+    with trino_containers() as port:
+        yield TRINO_HOST, port
 
 
 def trino_version() -> int:
