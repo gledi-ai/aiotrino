@@ -62,6 +62,7 @@ dev = [
   "pytest-asyncio",
   "pytest-cov",
   "pytest-sugar",
+  "pytest-xdist",
   "pytz",
   "ruff",
   "testcontainers",

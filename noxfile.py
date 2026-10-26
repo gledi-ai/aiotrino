@@ -27,7 +27,7 @@ def test(s: Session, sqlalchemy: str) -> None:
     cov_args = (
         ["--cov=aiotrino", "--cov-report=term-missing", f"--cov-report=xml:coverage-{suffix}.xml"] if coverage else []
     )
-    s.run("python", "-m", "pytest", *cov_args, f"--junitxml=junit-{suffix}.xml", *paths)
+    s.run("python", "-m", "pytest", *cov_args, f"--junitxml=junit-{suffix}.xml", *paths, *s.posargs)
     # Publish the coverage table to the GitHub Actions run summary when in CI.
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if coverage and summary:
