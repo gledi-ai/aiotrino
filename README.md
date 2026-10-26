@@ -247,7 +247,7 @@ TRINO_VERSION=466 uv run --frozen pytest tests/integration   # pin Trino version
 
 Containers used:
 - `trinodb/trino:${TRINO_VERSION:-latest}` — Trino coordinator on port 8080
-- `dxflrs/garage:v2.3.0` — S3-compatible storage on port 3900 (only for
+- `dxflrs/garage:v2.5.0` — S3-compatible storage on port 3900 (only for
   Trino ≥ 466, where the spooling protocol is enabled)
 
 If you already have a Trino instance running, the integration suite will
