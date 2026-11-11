@@ -9,14 +9,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
+
 import pytest
-from sqlalchemy import Column, Integer, LargeBinary, MetaData, String, Table, func, insert, literal, select
+from sqlalchemy import Column, Integer, LargeBinary, MetaData, String, Table, cast, func, insert, literal, select
 from sqlalchemy.exc import CompileError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column, table
 from sqlalchemy.sql.sqltypes import VARBINARY as GenericVARBINARY
 
-from aiotrino.sqlalchemy.datatype import MAP, ROW, VARBINARY
+from aiotrino.sqlalchemy.datatype import JSON, MAP, ROW, VARBINARY
 from aiotrino.sqlalchemy.dialect import AIOTrinoDialect
 from tests.unit.conftest import sqlalchemy_version
 
@@ -191,3 +193,81 @@ def test_varbinary_create_table(dialect):
     table_with_binary = Table("table_with_binary", MetaData(), Column("data", LargeBinary))
     query = CreateTable(table_with_binary).compile(dialect=dialect)
     assert "data VARBINARY" in str(query)
+
+
+def _compile_cached(statement, dialect, cache):
+    result = statement._compile_w_cache(dialect, compiled_cache=cache, column_keys=[])
+    return str(result[0]), result[-1]
+
+
+@pytest.mark.filterwarnings("error")
+def test_statement_cache_is_used(dialect):
+    cache = {}
+    statement = select(table_without_catalog).where(table_without_catalog.c.id == 1)
+
+    _, first = _compile_cached(statement, dialect, cache)
+    _, second = _compile_cached(select(table_without_catalog).where(table_without_catalog.c.id == 2), dialect, cache)
+
+    assert (first, second) == (dialect.CACHE_MISS, dialect.CACHE_HIT)
+
+
+@pytest.mark.filterwarnings("error")
+@pytest.mark.parametrize("element", [func.first_value, func.last_value, func.nth_value, func.lead, func.lag])
+def test_ignore_nulls_is_part_of_the_cache_key(dialect, element):
+    cache = {}
+    respect_nulls = select(element(table_without_catalog.c.id).over())
+    ignore_nulls = select(element(table_without_catalog.c.id, ignore_nulls=True).over())
+
+    respect_sql, _ = _compile_cached(respect_nulls, dialect, cache)
+    ignore_sql, _ = _compile_cached(ignore_nulls, dialect, cache)
+
+    assert "IGNORE NULLS" not in respect_sql
+    assert "IGNORE NULLS" in ignore_sql
+
+
+@pytest.mark.filterwarnings("error")
+def test_catalog_is_part_of_the_cache_key(dialect):
+    cache = {}
+    iceberg = Table("orders", MetaData(), Column("id", Integer), schema="sales", aiotrino_catalog="iceberg")
+    hive = Table("orders", MetaData(), Column("id", Integer), schema="sales", aiotrino_catalog="hive")
+
+    iceberg_sql, _ = _compile_cached(select(iceberg), dialect, cache)
+    hive_sql, _ = _compile_cached(select(hive), dialect, cache)
+
+    assert 'FROM "iceberg".sales.orders' in iceberg_sql
+    assert 'FROM "hive".sales.orders' in hive_sql
+
+
+@pytest.mark.filterwarnings("error")
+@pytest.mark.parametrize(
+    "type_",
+    [
+        ROW([("a", Integer), ("b", ROW([("c", String)]))]),
+        MAP(String, ROW([("a", Integer)])),
+        JSON(),
+    ],
+)
+def test_equal_types_hit_the_statement_cache(dialect, type_):
+    cache = {}
+    _compile_cached(select(cast(column("x"), type_)), dialect, cache)
+    _, stats = _compile_cached(select(cast(column("x"), copy.deepcopy(type_))), dialect, cache)
+
+    assert stats == dialect.CACHE_HIT
+
+
+@pytest.mark.filterwarnings("error")
+@pytest.mark.parametrize(
+    "first,second",
+    [
+        (ROW([("a", Integer)]), ROW([("a", String)])),
+        (ROW([("a", Integer)]), ROW([("b", Integer)])),
+        (ROW([("a", ROW([("b", Integer)]))]), ROW([("a", ROW([("b", String)]))])),
+        (MAP(String, ROW([("a", Integer)])), MAP(String, ROW([("a", String)]))),
+    ],
+)
+def test_types_are_part_of_the_cache_key(dialect, first, second):
+    cache = {}
+    first_sql, _ = _compile_cached(select(cast(column("x"), first)), dialect, cache)
+    second_sql, _ = _compile_cached(select(cast(column("x"), second)), dialect, cache)
+
+    assert first_sql != second_sql
