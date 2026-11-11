@@ -139,10 +139,10 @@ check: lint/check fmt/check test ## Run lint, format check and tests (current in
 
 .PHONY: hooks hooks/install
 
-hooks/install: ## Install the pre-commit git hooks
+hooks/install: ## Install the prek git hooks
 	$(UVX) prek install --install-hooks
 
-hooks: ## Run pre-commit on all files
+hooks: ## Run prek on all files
 	$(UVX) prek run --all-files
 
 
