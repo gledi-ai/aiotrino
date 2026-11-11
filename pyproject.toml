@@ -51,6 +51,7 @@ aiotrino = "aiotrino.sqlalchemy.dialect:AIOTrinoDialect"
 [dependency-groups]
 dev = [
   "aioresponses",
+  "alembic",
   # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
   # https://github.com/gabrielfalcao/HTTPretty/issues/425
   "httpretty<1.1",

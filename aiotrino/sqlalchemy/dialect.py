@@ -464,6 +464,7 @@ class AIOTrinoDialect(DefaultDialect):
         self._json_serializer = json_serializer
         self._json_deserializer = json_deserializer
 
+    name = "trino"
     driver = "aiotrino"
 
     is_async = True
@@ -892,3 +893,24 @@ class AIOTrinoDialect(DefaultDialect):
             return f"{schema_part}.{table_part}"
 
         return table_part
+
+
+def _register_alembic_impl() -> None:
+    """Give Alembic a migration impl for this dialect, unless one is already registered.
+
+    Alembic resolves its impl by ``dialect.name`` and only ships impls for SQLAlchemy's built-in dialects.
+    """
+    try:
+        from alembic.ddl.impl import DefaultImpl
+    except ImportError:
+        return
+
+    try:
+        DefaultImpl.get_by_dialect(AIOTrinoDialect)
+    except KeyError:
+
+        class AIOTrinoImpl(DefaultImpl):
+            __dialect__ = AIOTrinoDialect.name
+
+
+_register_alembic_impl()
