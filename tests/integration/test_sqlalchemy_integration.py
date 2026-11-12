@@ -870,3 +870,30 @@ async def _num_queries_containing_string(connection: AsyncConnection, query_stri
     result = await connection.execute(statement)
     rows = result.fetchall()
     return len(list(filter(lambda rec: query_string in rec[0], rows)))
+
+
+@pytest.mark.parametrize("trino_connection", ["memory"], indirect=True)
+@pytest.mark.asyncio(loop_scope="session")
+async def test_alembic_migration(trino_connection: tuple[AsyncEngine, AsyncConnection]):
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    engine, _conn = trino_connection
+    async with engine.begin() as connection:
+        if not (await connection.run_sync(lambda conn: engine.dialect.has_schema(conn, TEST_SCHEMA))):
+            await connection.execute(sqla.schema.CreateSchema(TEST_SCHEMA))
+
+    def migrate(conn):
+        context = MigrationContext.configure(conn, opts={"version_table_schema": TEST_SCHEMA})
+        assert context.get_current_revision() is None
+        operations = Operations(context)
+        operations.create_table("alembic_users", sqla.Column("id", sqla.Integer), schema=TEST_SCHEMA)
+        try:
+            operations.add_column("alembic_users", sqla.Column("name", sqla.String), schema=TEST_SCHEMA)
+            columns = sqla.inspect(conn).get_columns("alembic_users", schema=TEST_SCHEMA)
+            return [column["name"] for column in columns]
+        finally:
+            operations.drop_table("alembic_users", schema=TEST_SCHEMA)
+
+    async with engine.begin() as connection:
+        assert await connection.run_sync(migrate) == ["id", "name"]

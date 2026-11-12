@@ -9,10 +9,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import ClassVar
+
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import compiler, sqltypes
 from sqlalchemy.sql.base import DialectKWArgs
 from sqlalchemy.sql.functions import GenericFunction
+from sqlalchemy.sql.visitors import InternalTraversal
 from sqlalchemy.util import warn as SAWarn
 
 
@@ -134,6 +137,10 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
         return None
 
     class GenericIgnoreNulls(GenericFunction):
+        _traverse_internals: ClassVar = [
+            *GenericFunction._traverse_internals,
+            ("ignore_nulls", InternalTraversal.dp_boolean),
+        ]
         ignore_nulls = False
 
         def __init__(self, *args, **kwargs):
@@ -143,18 +150,23 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
     class FirstValue(GenericIgnoreNulls):
         name = "first_value"
+        inherit_cache = True
 
     class LastValue(GenericIgnoreNulls):
         name = "last_value"
+        inherit_cache = True
 
     class NthValue(GenericIgnoreNulls):
         name = "nth_value"
+        inherit_cache = True
 
     class Lead(GenericIgnoreNulls):
         name = "lead"
+        inherit_cache = True
 
     class Lag(GenericIgnoreNulls):
         name = "lag"
+        inherit_cache = True
 
     @staticmethod
     @compiles(FirstValue)

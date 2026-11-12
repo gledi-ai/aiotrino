@@ -14,12 +14,22 @@ body = """
 {% else %}\
 ## [Unreleased]
 {% endif %}\
-{% for group, commits in commits | group_by(attribute="group") %}
+{% set breaking = commits | filter(attribute="breaking", value=true) %}\
+{% if breaking | length > 0 %}
+### Breaking Changes
+{% for commit in breaking %}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.breaking_description | trim | replace(from="\n", to="\n  ") }}\
+{% endfor %}
+{% endif %}\
+{% if commits | filter(attribute="group", value="<!-- 9 -->Internal") | length == commits | length %}
+No user-facing changes.
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}{% if group != "<!-- 9 -->Internal" %}
 ### {{ group | striptags | trim }}
 {% for commit in commits %}
 - {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | split(pat="\n") | first | trim | upper_first }}\
 {% endfor %}
-{% endfor %}
+{% endif %}{% endfor %}
 
 """
 trim = false
@@ -32,16 +42,17 @@ postprocessors = [
 conventional_commits = true
 # Keep the early squash merges ("Fix/...", "Chore/...") that predate conventional commits.
 filter_unconventional = false
+# Non-user-facing commits go to the hidden Internal group rather than being skipped, so their releases still render.
 commit_parsers = [
   { message = "^Merge", skip = true },
   { message = "^chore\\(changelog\\)", skip = true },
+  { message = "(?i)^fix\\(tests?\\)", group = "<!-- 9 -->Internal" },
   { message = "(?i)^feat", group = "<!-- 0 -->Features" },
   { message = "(?i)^fix", group = "<!-- 1 -->Bug Fixes" },
   { message = "(?i)^perf", group = "<!-- 2 -->Performance" },
   { message = "(?i)^refactor", group = "<!-- 3 -->Refactor" },
   { message = "(?i)^docs?", group = "<!-- 4 -->Documentation" },
-  { message = "(?i)^(chore|ci|co)", group = "<!-- 5 -->Miscellaneous" },
-  { message = ".*", skip = true },
+  { message = ".*", group = "<!-- 9 -->Internal" },
 ]
 filter_commits = false
 # Stable tags only, so -rc tags fold into their release.

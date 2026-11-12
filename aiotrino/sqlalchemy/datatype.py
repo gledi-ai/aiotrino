@@ -60,6 +60,10 @@ class ROW(TypeEngine):
                 attr_type = attr_type()
             self.attr_types.append((attr_name, attr_type))
 
+    @util.memoized_property
+    def _static_cache_key(self):
+        return (self.__class__, *((name, attr_type._static_cache_key) for name, attr_type in self.attr_types))
+
     @property
     def python_type(self):
         return list
@@ -83,6 +87,7 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 
 class JSON(TypeDecorator):
     impl = JSON
+    cache_ok = True
 
     def bind_expression(self, bindvalue):
         return func.JSON_PARSE(bindvalue)
