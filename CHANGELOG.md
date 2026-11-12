@@ -3,24 +3,26 @@
 All notable changes to aiotrino-patched since it was forked from
 [mvanderlee/aiotrino](https://github.com/mvanderlee/aiotrino).
 
+## [0.8.0] - 2026-11-12
+
+### Breaking Changes
+
+- **sqlalchemy:** `dialect.name` is "trino" instead of "default".
+
+### Features
+
+- **sqlalchemy:** Enable SQL compilation caching
+- **sqlalchemy:** Name the dialect "trino"
+
 ## [0.7.0] - 2026-10-26
+
+### Breaking Changes
+
+- Python 3.12 is no longer supported.
 
 ### Features
 
 - Support Python 3.13-3.15, drop 3.12
-
-### Miscellaneous
-
-- Strip trailing blank lines
-- Run once per PR and lint in a single job
-- Use uv 0.13
-- Bump actions/checkout to v7 and astral-sh/setup-uv to v10.3.2
-- Run tests in parallel against one shared Trino
-- Drop --dist loadfile
-- Start the Trino dev server on Python 3.13
-- Build dependencies while Trino starts
-- Run the Trino dev server in its own venv and fail fast if it crashes
-- Run each SQLAlchemy version as its own matrix job, collect coverage on 3.14 only
 
 ## [0.6.0] - 2026-10-26
 
@@ -28,27 +30,15 @@ All notable changes to aiotrino-patched since it was forked from
 
 - **sqlalchemy:** Support SQLAlchemy 2.1 alongside 2.0
 
-### Miscellaneous
-
-- **make:** Fail on unknown targets
-- Drop agent tooling entries from .gitignore
-- Test against SQLAlchemy 2.0 and 2.1
-
 ## [0.5.1] - 2026-10-01
 
-### Miscellaneous
-
-- **release:** Generate CHANGELOG.md with git-cliff
+No user-facing changes.
 
 ## [0.5.0] - 2026-10-01
 
 ### Features
 
 - **client:** Catch up with trino-python-client 0.340.0
-
-### Miscellaneous
-
-- Bump dependencies
 
 ## [0.4.0] - 2026-09-14
 
@@ -61,17 +51,7 @@ All notable changes to aiotrino-patched since it was forked from
 
 ### Bug Fixes
 
-- **tests:** Pass stream_writer to ClientResponse for aiohttp 3.14 version bump
 - **client:** Surface empty 200 with JSON content type as TrinoConnectionError
-
-### Miscellaneous
-
-- Dependency upgrades
-- **dev:** Add Makefile and wire test/coverage reporting in CI
-- Bump actions/upload-artifact v4 -> v7 for Node 24 runtime
-- **deps:** Upgrade uv.lock to latest compatible versions
-- **coverage:** Hide fully covered files from terminal report
-- **make:** Add test/cov alias for cov target
 
 ## [0.3.5] - 2026-05-15
 
@@ -91,45 +71,22 @@ All notable changes to aiotrino-patched since it was forked from
 
 - **client:** Defer tzlocal import until needed
 
-### Miscellaneous
-
-- Upgrade action to non-deprecated version
-- **typing:** Mark package as PEP-561 compatible
-
 ## [0.3.4] - 2026-05-15
 
 ### Features
 
 - Add release action
 
-### Miscellaneous
-
-- Clarify release process with hatch-vcs
-- **dependencies:** Update dependencies
-- Trigger release pipeline on tag push
-- Update to supported action versions
-- Skip ci workflow on tag pushes
-
 ## [0.3.3] - 2026-05-14
 
-### Miscellaneous
-
-- Manage versions from git tags
+No user-facing changes.
 
 ## [0.3.2] - 2026-05-14
 
-### Miscellaneous
-
-- Some aesthetic project config changes
-- Autoformat
+No user-facing changes.
 
 ## [0.3.1] - 2026-02-01
 
 ### Bug Fixes
 
 - Fix/sqlalchemy upgrade soft close ([#2](https://github.com/gledi-ai/aiotrino/pull/2))
-
-### Miscellaneous
-
-- Chore/modernize ([#1](https://github.com/gledi-ai/aiotrino/pull/1))
-- **release:** Prepare for release ([#3](https://github.com/gledi-ai/aiotrino/pull/3))
